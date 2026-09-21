@@ -1,0 +1,40 @@
+{
+  "schema": "locua.transfer-v7.oracle.v1",
+  "never_model_input": true,
+  "cases": {
+    "project": {
+      "kind": "browser",
+      "evidence_plane": "fixture_server_saved_json",
+      "fields": {
+        "workspace.headline": "General project",
+        "workspace.reference": "TEMPLATE-09",
+        "workspace.approval": false,
+        "project.headline": "Marsh transect – phase 03",
+        "project.reference": "00028-K"
+      }
+    },
+    "release": {
+      "kind": "browser",
+      "evidence_plane": "fixture_server_saved_json",
+      "fields": {
+        "channel.name": "General updates",
+        "channel.public": false,
+        "release.name": "Ridge survey / release 05",
+        "release.public": false,
+        "release.owner": "North team"
+      }
+    },
+    "field-survey": {
+      "kind": "native_text",
+      "evidence_plane": "saved_file_bytes",
+      "expected_file": "expected/field-survey.txt",
+      "explicit_save_required": true
+    },
+    "release-note": {
+      "kind": "native_text",
+      "evidence_plane": "saved_file_bytes",
+      "expected_file": "expected/release-note.txt",
+      "explicit_save_required": true
+    }
+  }
+}

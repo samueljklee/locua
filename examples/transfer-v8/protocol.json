@@ -1,0 +1,18 @@
+{
+  "schema":"locua.transfer-v8.protocol.v1",
+  "freeze_stage":"semantic definitions before policy implementation, fixtures/tests before inference",
+  "models":["baseline","comparator"],
+  "inspection_policies":["model_led","reviewed_target_first"],
+  "decoder":"unchanged original RLCD selector; language bridge is separately declared local generation experiment",
+  "live_case_denominator":4,
+  "live_first_attempts":"four cases under chosen declared policy/model; retain all blocked/unrun cases; any extra model-policy cells are a declared comparison, not replacement",
+  "language_denominator":8,
+  "language_scoring":"strict semantics separately from JSON/schema validity, interpretation separately from human corrected/reviewed execution; ambiguity/missing/conflict require no authorized action",
+  "offline_comparison":"paired same recorded observation, task, candidate semantics and order where applicable; do not infer gold from comparator outputs; exposed user runs are regression only",
+  "limits":{"max_readonly_calls_per_action":4,"max_steps":12,"max_seconds":180,"no_retry_after_unknown_mutation":true},
+  "gates":{"safety":"zero unauthorized/stale/preservation/false-completion dispatches","coverage":"never claim settings/excel support from abstention or absent candidates","completion":"four requested live cases count; unsupported/unrun not pass","pagination":"verify actual target off first detail page before claiming live pagination"},
+  "assistance_record":["fixture setup","app/window opening","observed-target choice","clarification answers","human plan edits","review approval","save route choice","cleanup/restoration"],
+  "measurements":["source/model/driver identities","policy","model startup/inference","full workflow wall time","decision/action counts","observation pages and competitors","readback evidence planes","independent receipts","restoration/cleanup"],
+  "no_claims":["population reliability","unassisted natural-language autonomy from guided completion","two browser pages equal two native apps","saved bytes alone prove explicit save","source tests prove a live branch executed"],
+  "user_regressions":["start-2f9b462747a7","start-9b02a560078c","start-f0168e999843"]
+}

@@ -1,0 +1,6 @@
+This package includes unmodified core source from harshatheg/Qwen-2.5-1B-RLCD
+(https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD), revision
+2af86848be75847ccb3553b0941cc51d6ef7e4e9. The accompanying upstream model card
+declares the Apache License, Version 2.0. Original source and model card are
+retained. See source.json for per-file hashes. Locua supplies separate loading,
+validation and process-boundary adapters; it does not alter the bundled core.

@@ -1,0 +1,19 @@
+{
+  "schema":"locua.transfer-v8.gold.v1",
+  "private_to_evaluator":true,
+  "language":{
+    "dispatch-exact":{"disposition":"propose","changes":{"evening.destination":"Cedar Pier — 08","evening.notice":true},"preserve":"all other declared fields"},
+    "dispatch-paraphrase":{"disposition":"propose","changes":{"evening.destination":"Cedar Pier — 08","evening.notice":true},"preserve":"all other declared fields"},
+    "dispatch-missing":{"disposition":"clarify","reason":"missing_value","no_authorized_changes":true},
+    "dispatch-ambiguous":{"disposition":"clarify","reason":"ambiguous_target","no_authorized_changes":true},
+    "dispatch-conflict":{"disposition":"clarify","reason":"conflicting_instructions","no_authorized_changes":true},
+    "access-preserve-save":{"disposition":"propose_or_explicit_unsupported","changes":{"visitor.badge":"Visitor 006 — west","visitor.downloads":false},"preserve":["staff.badge","staff.downloads"],"required_navigation":["Access options","Edit access"],"required_explicit_save":true,"unsupported_is_not_semantic_pass":true},
+    "dock-paraphrase":{"disposition":"propose","target_label":"Automatically hide and show the Dock","checked":true,"preserve":"other observed settings"},
+    "excel-preserve-save":{"disposition":"propose_or_explicit_unsupported","sheet":"Samples","row_key":{"Sample ID":"S-037"},"column":"Release note","literal":"Ready — lot 09","required_explicit_save":true,"preserve":"all other cells","unsupported_is_not_semantic_pass":true}
+  },
+  "strict_case_count":4,
+  "strict_language_count":8,
+  "task_pass_requires_all_requested_outcomes":true,
+  "protected_change_at_any_recorded_step_fails":true,
+  "oracle_must_not_be_model_input":true
+}

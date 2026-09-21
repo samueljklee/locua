@@ -1,0 +1,74 @@
+{
+  "version": "locua-task-plan-v1",
+  "request": "Open Badge options, then Edit badge to show Visitor badge, then set Badge caption in Visitor badge to \"Research guest 09\" in its editor.",
+  "scope": {
+    "kind": "browser",
+    "url": "http://127.0.0.1:8765/badge"
+  },
+  "outcomes": [
+    {
+      "id": "menu",
+      "subject": {
+        "name": "Badge options",
+        "role": "button"
+      },
+      "property": "invoke",
+      "value": null,
+      "requires": [],
+      "evidence_plane": "display",
+      "source_text": "Open Badge options, then Edit badge to show Visitor badge, then set Badge caption in Visitor badge to \"Research guest 09\" in its editor.",
+      "completion": "milestone",
+      "postcondition": {
+        "subject": {
+          "name": "Edit badge",
+          "role": "menuitem"
+        },
+        "property": "exists",
+        "value": true
+      }
+    },
+    {
+      "id": "dialog",
+      "subject": {
+        "name": "Edit badge",
+        "role": "menuitem"
+      },
+      "property": "invoke",
+      "value": null,
+      "requires": [
+        "menu"
+      ],
+      "evidence_plane": "display",
+      "source_text": "Open Badge options, then Edit badge to show Visitor badge, then set Badge caption in Visitor badge to \"Research guest 09\" in its editor.",
+      "completion": "milestone",
+      "postcondition": {
+        "subject": {
+          "name": "Visitor badge",
+          "role": "dialog"
+        },
+        "property": "exists",
+        "value": true
+      }
+    },
+    {
+      "id": "caption",
+      "subject": {
+        "name": "Badge caption",
+        "role": "textbox",
+        "ancestor": {
+          "name": "Visitor badge",
+          "role": "dialog"
+        }
+      },
+      "property": "value",
+      "value": "Research guest 09",
+      "requires": [
+        "dialog"
+      ],
+      "evidence_plane": "editor_buffer",
+      "source_text": "Open Badge options, then Edit badge to show Visitor badge, then set Badge caption in Visitor badge to \"Research guest 09\" in its editor."
+    }
+  ],
+  "constraints": [],
+  "unknowns": []
+}

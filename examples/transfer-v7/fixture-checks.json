@@ -1,0 +1,20 @@
+{
+  "schema": "locua.transfer-v7.fixture-checks.v1",
+  "checked_at_utc": "2026-09-18T15:48:36.672878+00:00",
+  "freeze_sha256": "ce6faf6de6f4ddda7ec2d3f44c5a31ea2bb29142924bc97ff9a538536f5dd2b7",
+  "command": ".venv/bin/python examples/transfer-v7/test_fixture.py -v",
+  "tests_run": 6,
+  "passed": true,
+  "gui_calls": 0,
+  "model_calls": 0,
+  "server_socket_started": false,
+  "checks": [
+    "Frozen source integrity and no target answers in pages",
+    "Actual incorrect state retained and existing output directory refused",
+    "Missing fields, bool/int confusion and duplicate JSON refused",
+    "Exact whitespace/newline bytes; no save mechanism inferred",
+    "Extra receipt fields and numeric bool mismatch fail",
+    "Event sequence reconciles to final receipt"
+  ],
+  "scope": "Fixture and oracle unit checks only; no live browser or native task acceptance."
+}

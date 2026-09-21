@@ -1,0 +1,14 @@
+{
+  "repository": "https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD",
+  "revision": "2af86848be75847ccb3553b0941cc51d6ef7e4e9",
+  "license_from_model_card": "apache-2.0",
+  "files": {
+    "core/__init__.py": "761f67d16ad5d77d62914846c1cb66483445c7d7aed19e7413d975368941e255",
+    "core/benchmark.py": "93c779f04abe8d8db3cc618f6c5d9d8d6f3d69cf6fdb6eeffb8e19c738a4ab84",
+    "core/engine.py": "147e4a53890657adee6f6389ccdd816140bcccbc32beaa8ddd3e30493246dfe1",
+    "core/engine_mlx.py": "9429d1f3df66133c5b6675c8295680a6302c366f364a2f2e9e6365157df993b2",
+    "core/engine_torch.py": "eff09b903672fd0a80a259d27681814577dbc71d3cc84927af09b3c30da12c2f",
+    "core/prompt_builder.py": "84d8d7dc88d64212df22dfe7a269b0d28b1fa4d1aa36ca740ef18a70419e6aac",
+    "core/schema.py": "5fdfa2ffe4fd83c64e98331802d4a0f0858aa85197380cfc1ff6a39100f73232"
+  }
+}

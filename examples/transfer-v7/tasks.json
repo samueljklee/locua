@@ -1,0 +1,109 @@
+{
+  "schema": "locua.transfer-v7.human-tasks.v1",
+  "purpose": "Human-facing requirements and legitimate supplied task data. This is not an engine TaskPlan or an action script.",
+  "fixture_setup_is_human_or_operator_assistance": true,
+  "tasks": [
+    {
+      "id": "project",
+      "family": "browser",
+      "route": "/project",
+      "interface": "Fieldwork project workspace",
+      "request": "In Project brief, set Headline to “Marsh transect – phase 03” and Reference to “00028-K”. Preserve all Workspace defaults.",
+      "edits": [
+        {
+          "label": "Headline",
+          "container": "Project brief",
+          "desired_text": "Marsh transect – phase 03"
+        },
+        {
+          "label": "Reference",
+          "container": "Project brief",
+          "desired_text": "00028-K"
+        }
+      ],
+      "preserve": [
+        {
+          "label": "Headline",
+          "container": "Workspace defaults",
+          "value": "General project"
+        },
+        {
+          "label": "Reference",
+          "container": "Workspace defaults",
+          "value": "TEMPLATE-09"
+        },
+        {
+          "label": "Approval required",
+          "container": "Workspace defaults",
+          "checked": false
+        }
+      ],
+      "task_evidence": "Exact editor values; independent fixture receipt is graded separately."
+    },
+    {
+      "id": "release",
+      "family": "browser",
+      "route": "/release",
+      "interface": "Research release console",
+      "request": "In Release settings, set Display name to “Ridge survey / release 05” and turn Public listing off. Preserve Owner as “North team” and leave all Channel defaults unchanged.",
+      "edits": [
+        {
+          "label": "Display name",
+          "container": "Release settings",
+          "desired_text": "Ridge survey / release 05"
+        },
+        {
+          "label": "Public listing",
+          "container": "Release settings",
+          "desired_checked": false
+        }
+      ],
+      "preserve": [
+        {
+          "label": "Owner",
+          "container": "Release settings",
+          "value": "North team"
+        },
+        {
+          "label": "Display name",
+          "container": "Channel defaults",
+          "value": "General updates"
+        },
+        {
+          "label": "Public listing",
+          "container": "Channel defaults",
+          "checked": false
+        }
+      ],
+      "task_evidence": "Exact editor value and observed checkbox state; independent receipt graded separately."
+    },
+    {
+      "id": "field-survey",
+      "family": "native_text_editor",
+      "document_name": "field-survey.txt",
+      "initial_file": "initial/field-survey.txt",
+      "request": "In the disposable field-survey.txt document, replace the entire editor text with the supplied text, preserving its exact whitespace and final newline, then save this same file.",
+      "supplied_text": "  Field survey 0073  \nSite: North marsh – reed edge\nCount: 12\nNote: café λ\n",
+      "required_outcomes": [
+        "Exact editor-buffer replacement",
+        "Explicit same-file save with independent exact saved-byte verification"
+      ],
+      "setup": "Copy initial file into a new owned run directory, open that copy in TextEdit, and select the exact document through locua. Do not edit the frozen original.",
+      "save_limit": "Exact saved bytes alone do not prove an explicit save action; autosave or operator save must be disclosed."
+    },
+    {
+      "id": "release-note",
+      "family": "native_text_editor",
+      "document_name": "release-note.txt",
+      "initial_file": "initial/release-note.txt",
+      "request": "In the disposable release-note.txt document, replace the entire editor text with the supplied text, preserving its exact whitespace and final newline, then save this same file.",
+      "supplied_text": "Release note 0041\n\nStatus: review-ready\nOwner: O'Neil & Co.\nDetails: naïve μ / sample 03\n",
+      "required_outcomes": [
+        "Exact editor-buffer replacement",
+        "Explicit same-file save with independent exact saved-byte verification"
+      ],
+      "setup": "Copy initial file into a new owned run directory, open that copy in TextEdit, and select the exact document through locua. Do not edit the frozen original.",
+      "save_limit": "Exact saved bytes alone do not prove an explicit save action; autosave or operator save must be disclosed."
+    }
+  ]
+}

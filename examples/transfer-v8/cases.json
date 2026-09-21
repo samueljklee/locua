@@ -1,0 +1,36 @@
+{
+  "schema": "locua.transfer-v8.cases.v1",
+  "live_case_ids": ["dispatch-board", "access-dialog", "dock-setting", "sample-register"],
+  "cases": [
+    {
+      "id": "dispatch-board", "family": "browser", "route": "/dispatch",
+      "title": "Dispatch desk", "request": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged.",
+      "structure": {"regions": ["Morning dispatch", "Evening dispatch"], "same_region_prefix_controls": 20, "prefix_labels": "Reference 01 through Reference 20", "target_follows_prefix": true, "initials": {"morning.destination": "Harbor 02", "morning.notice": false, "evening.destination": "Depot 11", "evening.notice": false}, "reference_values": "EV-001 through EV-020", "target_page_requirement": "Target after first 16-item detail page; verify actual producer ordering before claiming live pagination coverage."},
+      "changes": {"evening.destination": "Cedar Pier — 08", "evening.notice": true},
+      "preserve": ["morning.destination", "morning.notice", "reference.01..20"],
+      "success_plane": "exact browser values plus independently persisted complete field receipt and every-event preservation"
+    },
+    {
+      "id": "access-dialog", "family": "browser", "route": "/access",
+      "title": "Collection access", "request": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+      "structure": {"regions": ["Staff collection", "Visitor collection"], "menu": "Access options", "menu_item": "Edit access", "dialog": "Visitor access", "save": "Save access", "saved_status": "Visitor access saved", "dialog_stays_open_after_save": true, "initials": {"staff.badge": "Staff only", "staff.downloads": false, "visitor.badge": "Guest pending", "visitor.downloads": true}},
+      "changes": {"visitor.badge": "Visitor 006 — west", "visitor.downloads": false},
+      "preserve": ["staff.badge", "staff.downloads"],
+      "success_plane": "explicit Save access event, exact field receipt and all-event protected fields; menu/dialog milestones verified separately",
+      "assistance_limit": "If public ordinary-language/guided journey cannot author hidden navigation, count that journey blocked. A human-supplied outcome-plan diagnostic is separate assisted evidence, never substituted for the public journey."
+    },
+    {
+      "id": "dock-setting", "family": "settings", "title": "System Settings / Desktop & Dock", "request": "In Desktop & Dock, turn on Automatically hide and show the Dock. Leave the other settings unchanged.",
+      "target": {"label": "Automatically hide and show the Dock", "desired_checked": true},
+      "success_plane": "fresh positive UI state plus scoped preservation observations; independent OS preference evidence if available, reported separately",
+      "setup": "Root alone opens this pane, records actual label and initial state, then restores original target state after attempt. Exact task label must bind or case blocks. Already true is zero-action completion and does not count mutation coverage. No edits to unrelated settings."
+    },
+    {
+      "id": "sample-register", "family": "excel", "title": "Sample register", "request": "In the Samples sheet, set the Release note for sample ID S-037 to 'Ready — lot 09' and save the workbook. Keep sample IDs, quantities, formulas, and every other cell unchanged.",
+      "workbook": {"file": "sample-register.xlsx", "sheet": "Samples", "table_range": "C5:F7", "headers": ["Sample ID", "Quantity", "Unit mass", "Release note"], "rows": [["S-036", 2, 4.5, "Hold"], ["S-037", 3, 6.25, "Pending review"]], "extra_cells": {"B2": "Sample register", "H5": "Total mass", "H6": "=D6*E6", "H7": "=D7*E7"}},
+      "changes": {"Samples!F7": "Ready — lot 09"},
+      "success_plane": "identity-bound cell readback, explicit save acknowledged, independently saved OOXML expected cell plus all other populated cells unchanged",
+      "assistance_limit": "Disposable copy only. Do not replace native editing with file writes. Saved-file read adapter is independent verification, not an action handle. Unsupported binding/save remains a failed or blocked attempted case, never dropped."
+    }
+  ]
+}

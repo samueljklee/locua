@@ -1,0 +1,5 @@
+Release note 0041
+
+Status: review-ready
+Owner: O'Neil & Co.
+Details: naïve μ / sample 03

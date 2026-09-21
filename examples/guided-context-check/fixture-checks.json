@@ -1,0 +1,11 @@
+{
+  "schema": "locua.guided-context-check.fixture-checks.v1",
+  "checked_at_utc": "2026-09-18T16:34:59.999762+00:00",
+  "command": "python3 examples/guided-context-check/test_fixture.py -v",
+  "tests_passed": 4,
+  "tests_failed": 0,
+  "freeze_sha256": "6def2a21a7c9cca4461c7373d76620699e211d74ab54aef927a9bf577b7d35c8",
+  "scope": "Offline rendering/recording/oracle checks only; no socket, GUI, Cua or model activity.",
+  "classification": "separate_development_repair_validation",
+  "include_in_frozen_v7_denominator": false
+}

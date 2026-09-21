@@ -1,0 +1,11 @@
+On the local Studio booking board, change only the Recording section:
+
+- Set Room to exactly: Orchid 14 — Ω
+- Turn Send reminder on.
+
+Preserve Soundcheck's Room as Maple 03 and its Send reminder setting as on.
+Preserve the Coordination note exactly as Keep 00073 untouched.
+
+Use the fields shown by Locua and review the two requested changes and three
+preservation constraints before approving execution. Changes are recorded
+automatically by this disposable local fixture; there is no Save button.

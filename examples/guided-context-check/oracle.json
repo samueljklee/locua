@@ -1,0 +1,13 @@
+{
+  "schema": "locua.guided-context-check.oracle.v1",
+  "classification": "separate_development_repair_validation",
+  "expected": {
+    "soundcheck.room": "Maple 03",
+    "soundcheck.reminder": true,
+    "recording.room": "Orchid 14 — Ω",
+    "recording.reminder": true,
+    "admin.note": "Keep 00073 untouched"
+  },
+  "preserved_in_every_event": ["soundcheck.room", "soundcheck.reminder", "admin.note"],
+  "include_in_frozen_v7_denominator": false
+}
