@@ -1,0 +1,7 @@
+{
+  "soundcheck.room": "Maple 03",
+  "soundcheck.reminder": true,
+  "recording.room": "Willow 08",
+  "recording.reminder": false,
+  "admin.note": "Keep 00073 untouched"
+}

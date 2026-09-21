@@ -1,0 +1,13 @@
+{
+  "schema": "locua.transfer-v8.language.v1",
+  "cases": [
+    {"id":"dispatch-exact","context_case":"dispatch-board","request":"In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep Morning dispatch and reference values unchanged."},
+    {"id":"dispatch-paraphrase","context_case":"dispatch-board","request":"For the evening run, send it to 'Cedar Pier — 08' and enable its notice. Do not touch the morning run or the reference entries."},
+    {"id":"dispatch-missing","context_case":"dispatch-board","request":"Change the evening Destination and keep everything else the same."},
+    {"id":"dispatch-ambiguous","context_case":"dispatch-board","request":"Set Destination to 'Cedar Pier — 08'. Leave notices as they are."},
+    {"id":"dispatch-conflict","context_case":"dispatch-board","request":"Set Evening dispatch Destination to 'Cedar Pier — 08', but keep that same Destination unchanged."},
+    {"id":"access-preserve-save","context_case":"access-dialog","request":"For Visitor collection, open Edit access from Access options, use 'Visitor 006 — west' as the badge text, disable downloads, and save. Leave Staff collection alone."},
+    {"id":"dock-paraphrase","context_case":"dock-setting","request":"Make the Dock hide automatically, keeping other Desktop & Dock settings as they are."},
+    {"id":"excel-preserve-save","context_case":"sample-register","request":"Update S-037's Release note to 'Ready — lot 09' on Samples and save. Do not alter other cells, quantities or formulas."}
+  ]
+}

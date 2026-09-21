@@ -1,0 +1,71 @@
+{
+  "model": {
+    "model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "revision": "c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
+    "adapter": "configured_model_unchanged_upstream_decoder",
+    "source_model": "Qwen/Qwen2.5-7B-Instruct",
+    "conversion_source_revision": null,
+    "conversion_tool_version_reported_by_card": "mlx-lm 0.18.1",
+    "license_reported_by_card": "apache-2.0",
+    "weights_bytes": 4284346255,
+    "weights_sha256": "86110f368236b53cf4c2336f991a85703b17bcc60bb75f292b4002ec0219f071",
+    "selection": "One predeclared same-family 4-bit local comparison; no model search or replacement of baseline."
+  },
+  "snapshot": ".cache/huggingface/hub/models--mlx-community--Qwen2.5-7B-Instruct-4bit/snapshots/c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 732,
+      "sha256": "bcc928c815d856439e238f1977b50c93580ec5e79118e588b20f03aba1a215f5"
+    },
+    {
+      "path": "added_tokens.json",
+      "bytes": 605,
+      "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b"
+    },
+    {
+      "path": "config.json",
+      "bytes": 787,
+      "sha256": "1661a349986919d13820d3981623776138d50783d13e247cdc5b075a22b62698"
+    },
+    {
+      "path": "merges.txt",
+      "bytes": 1671853,
+      "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+    },
+    {
+      "path": "model.safetensors",
+      "bytes": 4284346255,
+      "sha256": "86110f368236b53cf4c2336f991a85703b17bcc60bb75f292b4002ec0219f071"
+    },
+    {
+      "path": "model.safetensors.index.json",
+      "bytes": 51711,
+      "sha256": "23cd562592dd96686d2e799eb02e4b578a4038b6045eaefe860d270cc060e24f"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 613,
+      "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 7031673,
+      "sha256": "a8506e7111b80c6d8635951a02eab0f4e1a8e4e5772da83846579e97b16f61bf"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 7280,
+      "sha256": "4921d4cbae33349a9cb3b2ad3a7622efdea10a5d208c9f333c77b154aa714888"
+    },
+    {
+      "path": "vocab.json",
+      "bytes": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    }
+  ],
+  "downloaded_snapshot_bytes": 4295888342,
+  "provision_and_hash_seconds": 86.544,
+  "inference_performed": false,
+  "baseline_cache_ref_modified": false
+}

@@ -1,0 +1,259 @@
+[
+  {
+    "id": "profile",
+    "request": "In Account profile, set Display name to \"Cedar Observatory\". Stop at the exact editor value.",
+    "scope": {
+      "kind": "simulation",
+      "case": "profile"
+    },
+    "controls": [
+      {
+        "key": "panel",
+        "role": "group",
+        "name": "Account profile",
+        "actions": []
+      },
+      {
+        "key": "name",
+        "parent": "panel",
+        "role": "textbox",
+        "name": "Display name",
+        "value": "Old name",
+        "actions": [
+          "type"
+        ],
+        "states": {
+          "editable": true,
+          "enabled": true
+        }
+      },
+      {
+        "key": "timezone",
+        "parent": "panel",
+        "role": "textbox",
+        "name": "Time zone",
+        "value": "Pacific",
+        "actions": [
+          "type"
+        ],
+        "states": {
+          "editable": true,
+          "enabled": true
+        }
+      },
+      {
+        "key": "save",
+        "parent": "panel",
+        "role": "button",
+        "name": "Save",
+        "actions": [
+          "click"
+        ]
+      },
+      {
+        "key": "sidebar",
+        "role": "group",
+        "name": "Team profile",
+        "actions": []
+      },
+      {
+        "key": "other",
+        "parent": "sidebar",
+        "role": "textbox",
+        "name": "Display name",
+        "value": "Team title",
+        "actions": [
+          "type"
+        ],
+        "states": {
+          "editable": true,
+          "enabled": true
+        }
+      },
+      {
+        "key": "other-save",
+        "parent": "sidebar",
+        "role": "button",
+        "name": "Save",
+        "actions": [
+          "click"
+        ]
+      }
+    ],
+    "effects": {},
+    "reference_plan": {
+      "version": "locua-task-plan-v1",
+      "request": "In Account profile, set Display name to \"Cedar Observatory\". Stop at the exact editor value.",
+      "scope": {
+        "kind": "simulation",
+        "case": "profile"
+      },
+      "outcomes": [
+        {
+          "id": "name",
+          "subject": {
+            "name": "Display name",
+            "ancestor": {
+              "name": "Account profile"
+            }
+          },
+          "property": "value",
+          "value": "Cedar Observatory",
+          "requires": [],
+          "evidence_plane": "editor_buffer",
+          "source_text": "In Account profile, set Display name to \"Cedar Observatory\". Stop at the exact editor value."
+        }
+      ],
+      "constraints": [],
+      "unknowns": []
+    }
+  },
+  {
+    "id": "menu-dialog",
+    "request": "Open Actions so that the Edit details menu item appears, then open Edit details so that the Details dialog appears, then set the Memo field to \"Survey complete\" in the editor buffer.",
+    "scope": {
+      "kind": "simulation",
+      "case": "menu-dialog"
+    },
+    "controls": [
+      {
+        "key": "toolbar",
+        "role": "toolbar",
+        "name": "Document tools",
+        "actions": []
+      },
+      {
+        "key": "actions",
+        "parent": "toolbar",
+        "role": "button",
+        "name": "Actions",
+        "actions": [
+          "click"
+        ]
+      },
+      {
+        "key": "menu",
+        "role": "menu",
+        "name": "Actions menu",
+        "actions": [],
+        "visible": false
+      },
+      {
+        "key": "edit",
+        "parent": "menu",
+        "role": "menuitem",
+        "name": "Edit details",
+        "actions": [
+          "click"
+        ],
+        "visible": false
+      },
+      {
+        "key": "dialog",
+        "role": "dialog",
+        "name": "Details",
+        "actions": [],
+        "visible": false
+      },
+      {
+        "key": "memo",
+        "parent": "dialog",
+        "role": "textbox",
+        "name": "Memo",
+        "value": "",
+        "actions": [
+          "type"
+        ],
+        "states": {
+          "editable": true,
+          "enabled": true
+        },
+        "visible": false
+      }
+    ],
+    "effects": {
+      "actions": {
+        "show": [
+          "menu",
+          "edit"
+        ]
+      },
+      "edit": {
+        "show": [
+          "dialog",
+          "memo"
+        ],
+        "hide": [
+          "menu",
+          "edit"
+        ]
+      }
+    },
+    "reference_plan": {
+      "version": "locua-task-plan-v1",
+      "request": "Open Actions so that the Edit details menu item appears, then open Edit details so that the Details dialog appears, then set the Memo field to \"Survey complete\" in the editor buffer.",
+      "scope": {
+        "kind": "simulation",
+        "case": "menu-dialog"
+      },
+      "outcomes": [
+        {
+          "id": "open-menu",
+          "subject": {
+            "name": "Actions",
+            "role": "button"
+          },
+          "property": "invoke",
+          "value": null,
+          "requires": [],
+          "evidence_plane": "display",
+          "source_text": "Open Actions so that the Edit details menu item appears, then open Edit details so that the Details dialog appears, then set the Memo field to \"Survey complete\" in the editor buffer.",
+          "postcondition": {
+            "subject": {
+              "name": "Edit details"
+            },
+            "property": "exists",
+            "value": true
+          },
+          "completion": "milestone"
+        },
+        {
+          "id": "open-dialog",
+          "subject": {
+            "name": "Edit details",
+            "role": "menuitem"
+          },
+          "property": "invoke",
+          "value": null,
+          "requires": [
+            "open-menu"
+          ],
+          "evidence_plane": "display",
+          "source_text": "Open Actions so that the Edit details menu item appears, then open Edit details so that the Details dialog appears, then set the Memo field to \"Survey complete\" in the editor buffer.",
+          "postcondition": {
+            "subject": {
+              "name": "Details"
+            },
+            "property": "exists",
+            "value": true
+          }
+        },
+        {
+          "id": "memo",
+          "subject": {
+            "name": "Memo"
+          },
+          "property": "value",
+          "value": "Survey complete",
+          "requires": [
+            "open-dialog"
+          ],
+          "evidence_plane": "editor_buffer",
+          "source_text": "Open Actions so that the Edit details menu item appears, then open Edit details so that the Details dialog appears, then set the Memo field to \"Survey complete\" in the editor buffer."
+        }
+      ],
+      "constraints": [],
+      "unknowns": []
+    }
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "schema_version": "locua-model-comparison-config/1",
+  "comparison_id": "qwen25-size-rlcd-v3",
+  "upstream_revision": "2af86848be75847ccb3553b0941cc51d6ef7e4e9",
+  "policy_sha256": "cd263b0642a7c5cd1fdd70446e49ea32b6bc11eac4b8149e23dec557e6242a89",
+  "models": {
+    "baseline": {
+      "model_id": "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
+      "revision": "8b403126fc14f14cfc99bb4cfa72ecbc129ea677",
+      "adapter": "restricted_exact_upstream"
+    },
+    "comparator": {
+      "model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+      "revision": "c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
+      "adapter": "configured_model_unchanged_upstream_decoder",
+      "source_model": "Qwen/Qwen2.5-7B-Instruct",
+      "conversion_source_revision": null,
+      "conversion_tool_version_reported_by_card": "mlx-lm 0.18.1",
+      "license_reported_by_card": "apache-2.0",
+      "weights_bytes": 4284346255,
+      "weights_sha256": "86110f368236b53cf4c2336f991a85703b17bcc60bb75f292b4002ec0219f071",
+      "selection": "One predeclared same-family 4-bit local comparison; no model search or replacement of baseline."
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "version": "locua-task-plan-v1",
+  "request": "Set Email in Billing office to \"accounts+071@example.test\" in the editor. Preserve Shipping office Email \"shipping@example.test\", Billing office Cost centre \"0046\", and Receive news unchecked.",
+  "scope": {
+    "kind": "browser",
+    "url": "http://127.0.0.1:8765/contact"
+  },
+  "outcomes": [
+    {
+      "id": "billing-email",
+      "subject": {
+        "name": "Email",
+        "role": "textbox",
+        "ancestor": {
+          "name": "Billing office",
+          "role": "group"
+        }
+      },
+      "property": "value",
+      "value": "accounts+071@example.test",
+      "requires": [],
+      "evidence_plane": "editor_buffer",
+      "source_text": "Set Email in Billing office to \"accounts+071@example.test\" in the editor. Preserve Shipping office Email \"shipping@example.test\", Billing office Cost centre \"0046\", and Receive news unchecked."
+    }
+  ],
+  "constraints": [
+    {
+      "subject": {
+        "name": "Email",
+        "ancestor": {
+          "name": "Shipping office",
+          "role": "group"
+        },
+        "role": "textbox"
+      },
+      "property": "value",
+      "value": "shipping@example.test",
+      "source_text": "Set Email in Billing office to \"accounts+071@example.test\" in the editor. Preserve Shipping office Email \"shipping@example.test\", Billing office Cost centre \"0046\", and Receive news unchecked."
+    },
+    {
+      "subject": {
+        "name": "Cost centre",
+        "ancestor": {
+          "name": "Billing office",
+          "role": "group"
+        },
+        "role": "textbox"
+      },
+      "property": "value",
+      "value": "0046",
+      "source_text": "Set Email in Billing office to \"accounts+071@example.test\" in the editor. Preserve Shipping office Email \"shipping@example.test\", Billing office Cost centre \"0046\", and Receive news unchecked."
+    },
+    {
+      "subject": {
+        "name": "Receive news",
+        "ancestor": {
+          "name": "Billing office",
+          "role": "group"
+        },
+        "role": "checkbox"
+      },
+      "property": "checked",
+      "value": false,
+      "source_text": "Set Email in Billing office to \"accounts+071@example.test\" in the editor. Preserve Shipping office Email \"shipping@example.test\", Billing office Cost centre \"0046\", and Receive news unchecked."
+    }
+  ],
+  "unknowns": []
+}

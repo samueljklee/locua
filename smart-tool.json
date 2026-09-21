@@ -1,0 +1,5 @@
+{
+  "manifest": "src/locua/SMART_TOOL.md",
+  "cli_argv": ["locua"],
+  "deterministic_smoke": ["manifest"]
+}

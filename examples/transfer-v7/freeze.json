@@ -1,0 +1,30 @@
+{
+  "schema": "locua.transfer-v7.freeze.v1",
+  "frozen_at_utc": "2026-09-18T15:47:54.812464+00:00",
+  "stage": "before fixture tests, model calls or live GUI",
+  "cases": [
+    "project",
+    "release",
+    "field-survey",
+    "release-note"
+  ],
+  "case_count": 4,
+  "new_menu_dialog_case": false,
+  "files": {
+    "examples/transfer-v7/README.md": "dd817fbda3498bd468f77dfaa0f73ad080a40be998ef91855684fb1af8fa48a1",
+    "examples/transfer-v7/expected/field-survey.txt": "cc8808b7b8060c1d791edba268468b693e2c418c96d7d047bc37d658c81cefb8",
+    "examples/transfer-v7/expected/release-note.txt": "25bcaec385e730a42d66187b3c62326347b20d698c06c1191c7ffe402fb9589c",
+    "examples/transfer-v7/initial/field-survey.txt": "99dd8e1d9cfa55c4ae0143d7558f9c9295198c30e9868dd03fd25953426bbbe9",
+    "examples/transfer-v7/initial/release-note.txt": "7ceb0be9dcaa342327c03ed81d98cf920da01ff7ce3c2ed025afd590cfa54e0e",
+    "examples/transfer-v7/oracle.json": "eb12e4ab8d89801f62d1e6795905725ab4885fce5c84856bb4fb92822e3322c7",
+    "examples/transfer-v7/rubric.json": "b8f110324fa3f8c88335d96db4fa69fc494b1b1e6bca4c0862ecbcd4a31a2e74",
+    "examples/transfer-v7/server.py": "e00fd3ce4192ec051d3edef229e1a5d8dd973462d613473b185addc86e8b8c05",
+    "examples/transfer-v7/tasks.json": "e8c28c56cf21aabf1ed992cbbe41008ab469aed41f995aecf658271a2b6d3817",
+    "examples/transfer-v7/test_fixture.py": "03dc84c8fe784b3ec57d46261e0b374dc16d48b657422e7c5fc29d887cd14732",
+    "tools/audit_transfer_v7.py": "a09a799a7454cc55df8b3b484b8a28977a255e0cec525fa68cc602a131eb4721"
+  },
+  "policy_changes_for_these_cases": false,
+  "model_outputs_seen": false,
+  "oracle_in_model_inputs": false,
+  "note": "Guided observed-target development transfer. Legitimate requested literal data is in tasks.json; oracle.json/expected are evaluator-only."
+}

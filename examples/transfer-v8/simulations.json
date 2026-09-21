@@ -1,0 +1,1488 @@
+{
+  "schema": "locua.transfer-v8.simulations.v1",
+  "cases": [
+    {
+      "id": "dispatch-board",
+      "controls": [
+        {
+          "key": "morning",
+          "role": "group",
+          "name": "Morning dispatch",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [],
+          "visible": true
+        },
+        {
+          "key": "md",
+          "role": "textbox",
+          "name": "Destination",
+          "value": "Harbor 02",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "morning"
+        },
+        {
+          "key": "mn",
+          "role": "checkbox",
+          "name": "Send notice",
+          "value": null,
+          "states": {
+            "enabled": true,
+            "checked": false
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": true,
+          "parent": "morning"
+        },
+        {
+          "key": "evening",
+          "role": "group",
+          "name": "Evening dispatch",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [],
+          "visible": true
+        },
+        {
+          "key": "ref1",
+          "role": "textbox",
+          "name": "Reference 01",
+          "value": "EV-001",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref2",
+          "role": "textbox",
+          "name": "Reference 02",
+          "value": "EV-002",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref3",
+          "role": "textbox",
+          "name": "Reference 03",
+          "value": "EV-003",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref4",
+          "role": "textbox",
+          "name": "Reference 04",
+          "value": "EV-004",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref5",
+          "role": "textbox",
+          "name": "Reference 05",
+          "value": "EV-005",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref6",
+          "role": "textbox",
+          "name": "Reference 06",
+          "value": "EV-006",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref7",
+          "role": "textbox",
+          "name": "Reference 07",
+          "value": "EV-007",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref8",
+          "role": "textbox",
+          "name": "Reference 08",
+          "value": "EV-008",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref9",
+          "role": "textbox",
+          "name": "Reference 09",
+          "value": "EV-009",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref10",
+          "role": "textbox",
+          "name": "Reference 10",
+          "value": "EV-010",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref11",
+          "role": "textbox",
+          "name": "Reference 11",
+          "value": "EV-011",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref12",
+          "role": "textbox",
+          "name": "Reference 12",
+          "value": "EV-012",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref13",
+          "role": "textbox",
+          "name": "Reference 13",
+          "value": "EV-013",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref14",
+          "role": "textbox",
+          "name": "Reference 14",
+          "value": "EV-014",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref15",
+          "role": "textbox",
+          "name": "Reference 15",
+          "value": "EV-015",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref16",
+          "role": "textbox",
+          "name": "Reference 16",
+          "value": "EV-016",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref17",
+          "role": "textbox",
+          "name": "Reference 17",
+          "value": "EV-017",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref18",
+          "role": "textbox",
+          "name": "Reference 18",
+          "value": "EV-018",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref19",
+          "role": "textbox",
+          "name": "Reference 19",
+          "value": "EV-019",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ref20",
+          "role": "textbox",
+          "name": "Reference 20",
+          "value": "EV-020",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "ed",
+          "role": "textbox",
+          "name": "Destination",
+          "value": "Depot 11",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        },
+        {
+          "key": "en",
+          "role": "checkbox",
+          "name": "Send notice",
+          "value": null,
+          "states": {
+            "enabled": true,
+            "checked": false
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": true,
+          "parent": "evening"
+        }
+      ],
+      "effects": {},
+      "plan": {
+        "version": "locua-task-plan-v1",
+        "request": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged.",
+        "scope": {
+          "kind": "simulation",
+          "case": "dispatch-board"
+        },
+        "outcomes": [
+          {
+            "id": "destination",
+            "subject": {
+              "name": "Destination",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "Cedar Pier — 08",
+            "evidence_plane": "editor_buffer",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged.",
+            "requires": []
+          },
+          {
+            "id": "notice",
+            "subject": {
+              "name": "Send notice",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "checked",
+            "value": true,
+            "evidence_plane": "display",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged.",
+            "requires": []
+          }
+        ],
+        "constraints": [
+          {
+            "subject": {
+              "name": "Destination",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Morning dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "Harbor 02",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Send notice",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Morning dispatch",
+                "role": "group"
+              }
+            },
+            "property": "checked",
+            "value": false,
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 01",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-001",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 02",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-002",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 03",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-003",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 04",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-004",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 05",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-005",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 06",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-006",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 07",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-007",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 08",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-008",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 09",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-009",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 10",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-010",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 11",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-011",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 12",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-012",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 13",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-013",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 14",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-014",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 15",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-015",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 16",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-016",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 17",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-017",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 18",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-018",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 19",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-019",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          },
+          {
+            "subject": {
+              "name": "Reference 20",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-020",
+            "source_text": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged."
+          }
+        ],
+        "unknowns": []
+      },
+      "evidence_class": "fresh frozen synthetic wiring task; no browser/native evidence",
+      "task_template": {
+        "id": "dispatch-board",
+        "goal": "In Evening dispatch, change Destination to 'Cedar Pier — 08' and turn on Send notice. Keep every Morning dispatch field and all reference values unchanged.",
+        "intents": [
+          {
+            "id": "destination",
+            "selector": {
+              "name": "Destination",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "requires": [],
+            "kind": "set_text",
+            "value": "Cedar Pier — 08",
+            "verification": "exact"
+          },
+          {
+            "id": "notice",
+            "selector": {
+              "name": "Send notice",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "requires": [],
+            "kind": "set_state",
+            "property": "checked",
+            "value": true
+          }
+        ],
+        "invariants": [
+          {
+            "selector": {
+              "name": "Destination",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Morning dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "Harbor 02"
+          },
+          {
+            "selector": {
+              "name": "Send notice",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Morning dispatch",
+                "role": "group"
+              }
+            },
+            "property": "checked",
+            "value": false
+          },
+          {
+            "selector": {
+              "name": "Reference 01",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-001"
+          },
+          {
+            "selector": {
+              "name": "Reference 02",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-002"
+          },
+          {
+            "selector": {
+              "name": "Reference 03",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-003"
+          },
+          {
+            "selector": {
+              "name": "Reference 04",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-004"
+          },
+          {
+            "selector": {
+              "name": "Reference 05",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-005"
+          },
+          {
+            "selector": {
+              "name": "Reference 06",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-006"
+          },
+          {
+            "selector": {
+              "name": "Reference 07",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-007"
+          },
+          {
+            "selector": {
+              "name": "Reference 08",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-008"
+          },
+          {
+            "selector": {
+              "name": "Reference 09",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-009"
+          },
+          {
+            "selector": {
+              "name": "Reference 10",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-010"
+          },
+          {
+            "selector": {
+              "name": "Reference 11",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-011"
+          },
+          {
+            "selector": {
+              "name": "Reference 12",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-012"
+          },
+          {
+            "selector": {
+              "name": "Reference 13",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-013"
+          },
+          {
+            "selector": {
+              "name": "Reference 14",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-014"
+          },
+          {
+            "selector": {
+              "name": "Reference 15",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-015"
+          },
+          {
+            "selector": {
+              "name": "Reference 16",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-016"
+          },
+          {
+            "selector": {
+              "name": "Reference 17",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-017"
+          },
+          {
+            "selector": {
+              "name": "Reference 18",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-018"
+          },
+          {
+            "selector": {
+              "name": "Reference 19",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-019"
+          },
+          {
+            "selector": {
+              "name": "Reference 20",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Evening dispatch",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "EV-020"
+          }
+        ]
+      },
+      "plan_note": "Human-authored comparator input, not a language interpretation. Capacity refusal retained if current plan constraint cap cannot express all fields."
+    },
+    {
+      "id": "access-dialog",
+      "controls": [
+        {
+          "key": "staff",
+          "role": "group",
+          "name": "Staff collection",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [],
+          "visible": true
+        },
+        {
+          "key": "sb",
+          "role": "textbox",
+          "name": "Badge text",
+          "value": "Staff only",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": true,
+          "parent": "staff"
+        },
+        {
+          "key": "sd",
+          "role": "checkbox",
+          "name": "Allow downloads",
+          "value": null,
+          "states": {
+            "enabled": true,
+            "checked": false
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": true,
+          "parent": "staff"
+        },
+        {
+          "key": "visitor",
+          "role": "group",
+          "name": "Visitor collection",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [],
+          "visible": true
+        },
+        {
+          "key": "options",
+          "role": "button",
+          "name": "Access options",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": true,
+          "parent": "visitor"
+        },
+        {
+          "key": "edit",
+          "role": "menuitem",
+          "name": "Edit access",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": false,
+          "parent": "visitor"
+        },
+        {
+          "key": "dialog",
+          "role": "dialog",
+          "name": "Visitor access",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [],
+          "visible": false
+        },
+        {
+          "key": "vb",
+          "role": "textbox",
+          "name": "Badge text",
+          "value": "Guest pending",
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "type",
+            "click"
+          ],
+          "visible": false,
+          "parent": "dialog"
+        },
+        {
+          "key": "vd",
+          "role": "checkbox",
+          "name": "Allow downloads",
+          "value": null,
+          "states": {
+            "enabled": true,
+            "checked": true
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": false,
+          "parent": "dialog"
+        },
+        {
+          "key": "save",
+          "role": "button",
+          "name": "Save access",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [
+            "click"
+          ],
+          "visible": false,
+          "parent": "dialog"
+        },
+        {
+          "key": "saved",
+          "role": "status",
+          "name": "Visitor access saved",
+          "value": null,
+          "states": {
+            "enabled": true
+          },
+          "actions": [],
+          "visible": false,
+          "parent": "dialog"
+        }
+      ],
+      "effects": {
+        "options": {
+          "show": [
+            "edit"
+          ]
+        },
+        "edit": {
+          "show": [
+            "dialog",
+            "vb",
+            "vd",
+            "save"
+          ],
+          "hide": [
+            "edit"
+          ]
+        },
+        "save": {
+          "show": [
+            "saved"
+          ]
+        }
+      },
+      "plan": {
+        "version": "locua-task-plan-v1",
+        "request": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+        "scope": {
+          "kind": "simulation",
+          "case": "access-dialog"
+        },
+        "outcomes": [
+          {
+            "id": "menu",
+            "subject": {
+              "name": "Access options",
+              "role": "button",
+              "ancestor": {
+                "name": "Visitor collection",
+                "role": "group"
+              }
+            },
+            "property": "invoke",
+            "value": null,
+            "evidence_plane": "display",
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+            "requires": [],
+            "completion": "milestone",
+            "postcondition": {
+              "subject": {
+                "name": "Edit access",
+                "role": "menuitem"
+              },
+              "property": "exists",
+              "value": true
+            }
+          },
+          {
+            "id": "dialog",
+            "subject": {
+              "name": "Edit access",
+              "role": "menuitem"
+            },
+            "property": "invoke",
+            "value": null,
+            "evidence_plane": "display",
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+            "requires": [
+              "menu"
+            ],
+            "completion": "milestone",
+            "postcondition": {
+              "subject": {
+                "name": "Visitor access",
+                "role": "dialog"
+              },
+              "property": "exists",
+              "value": true
+            }
+          },
+          {
+            "id": "badge",
+            "subject": {
+              "name": "Badge text",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Visitor access",
+                "role": "dialog"
+              }
+            },
+            "property": "value",
+            "value": "Visitor 006 — west",
+            "evidence_plane": "editor_buffer",
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+            "requires": [
+              "dialog"
+            ]
+          },
+          {
+            "id": "downloads",
+            "subject": {
+              "name": "Allow downloads",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Visitor access",
+                "role": "dialog"
+              }
+            },
+            "property": "checked",
+            "value": false,
+            "evidence_plane": "display",
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+            "requires": [
+              "dialog"
+            ]
+          },
+          {
+            "id": "save",
+            "subject": {
+              "name": "Save access",
+              "role": "button",
+              "ancestor": {
+                "name": "Visitor access",
+                "role": "dialog"
+              }
+            },
+            "property": "invoke",
+            "value": null,
+            "evidence_plane": "display",
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+            "requires": [
+              "badge",
+              "downloads"
+            ],
+            "postcondition": {
+              "subject": {
+                "name": "Visitor access saved",
+                "role": "status"
+              },
+              "property": "exists",
+              "value": true
+            }
+          }
+        ],
+        "constraints": [
+          {
+            "subject": {
+              "name": "Badge text",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Staff collection",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "Staff only",
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged."
+          },
+          {
+            "subject": {
+              "name": "Allow downloads",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Staff collection",
+                "role": "group"
+              }
+            },
+            "property": "checked",
+            "value": false,
+            "source_text": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged."
+          }
+        ],
+        "unknowns": []
+      },
+      "evidence_class": "fresh frozen synthetic wiring task; no browser/native evidence",
+      "task_template": {
+        "id": "access-dialog",
+        "goal": "Open Access options for the Visitor collection, then its Edit access dialog. Set Badge text to 'Visitor 006 — west', turn off Allow downloads, and save the dialog. Keep the Staff collection unchanged.",
+        "intents": [
+          {
+            "id": "menu",
+            "selector": {
+              "name": "Access options",
+              "role": "button",
+              "ancestor": {
+                "name": "Visitor collection",
+                "role": "group"
+              }
+            },
+            "requires": [],
+            "kind": "invoke",
+            "completion": "milestone",
+            "postcondition": {
+              "selector": {
+                "name": "Edit access",
+                "role": "menuitem"
+              },
+              "property": "exists",
+              "value": true
+            }
+          },
+          {
+            "id": "dialog",
+            "selector": {
+              "name": "Edit access",
+              "role": "menuitem"
+            },
+            "requires": [
+              "menu"
+            ],
+            "kind": "invoke",
+            "completion": "milestone",
+            "postcondition": {
+              "selector": {
+                "name": "Visitor access",
+                "role": "dialog"
+              },
+              "property": "exists",
+              "value": true
+            }
+          },
+          {
+            "id": "badge",
+            "selector": {
+              "name": "Badge text",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Visitor access",
+                "role": "dialog"
+              }
+            },
+            "requires": [
+              "dialog"
+            ],
+            "kind": "set_text",
+            "value": "Visitor 006 — west",
+            "verification": "exact"
+          },
+          {
+            "id": "downloads",
+            "selector": {
+              "name": "Allow downloads",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Visitor access",
+                "role": "dialog"
+              }
+            },
+            "requires": [
+              "dialog"
+            ],
+            "kind": "set_state",
+            "property": "checked",
+            "value": false
+          },
+          {
+            "id": "save",
+            "selector": {
+              "name": "Save access",
+              "role": "button",
+              "ancestor": {
+                "name": "Visitor access",
+                "role": "dialog"
+              }
+            },
+            "requires": [
+              "badge",
+              "downloads"
+            ],
+            "kind": "invoke",
+            "completion": "persistent",
+            "postcondition": {
+              "selector": {
+                "name": "Visitor access saved",
+                "role": "status"
+              },
+              "property": "exists",
+              "value": true
+            }
+          }
+        ],
+        "invariants": [
+          {
+            "selector": {
+              "name": "Badge text",
+              "role": "textbox",
+              "ancestor": {
+                "name": "Staff collection",
+                "role": "group"
+              }
+            },
+            "property": "value",
+            "value": "Staff only"
+          },
+          {
+            "selector": {
+              "name": "Allow downloads",
+              "role": "checkbox",
+              "ancestor": {
+                "name": "Staff collection",
+                "role": "group"
+              }
+            },
+            "property": "checked",
+            "value": false
+          }
+        ]
+      },
+      "plan_note": "Human-authored comparator input, not a language interpretation. Capacity refusal retained if current plan constraint cap cannot express all fields."
+    }
+  ]
+}

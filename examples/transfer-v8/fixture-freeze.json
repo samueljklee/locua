@@ -1,0 +1,22 @@
+{
+  "schema": "locua.transfer-v8.fixture-freeze.v1",
+  "created_at": "2026-09-18T18:50:40.609402+00:00",
+  "semantic_freeze_sha256": "36571d860d9d6367e35310087f35e819670068c6198f5e5606d9c51087e7850e",
+  "files": {
+    "README.md": "8802acaf42687b9d0e88d9c3bef246ff1ed7b2c3c8618613ef02d898433a21a2",
+    "cases.json": "1f68c830fed41f1a0a885104d8dba2f709280857d1bfa3d58ae4f39a501789bb",
+    "gold.json": "61c804a0975074e821c6da620e26d3682cb81a5b7fd27d3d907dfe4ab84d71cb",
+    "language-cases.json": "13d927b04c8e073747b40ba55069ef1889d0476b34106005688004bb03c00e09",
+    "protocol.json": "89ddf83c4b994dcc995cea8aa0fc90488747c6cd26fbcb7758229fbc5820c2e8",
+    "sample-register.xlsx": "ecfb7aaac07e9dc67bdaf65df926b658c12108bf0cdf3e74b44ba296b3e05cfc",
+    "semantic-freeze.json": "36571d860d9d6367e35310087f35e819670068c6198f5e5606d9c51087e7850e",
+    "server.py": "598ec0d3971f6e03db7e8984779a00952f5869567dcbcce0ad70eb9bf46b916c",
+    "simulations.json": "e052becd8c329ce417751005b0c1607c7530c2a8c28839ece7129023351a519d",
+    "verify.py": "fe91be7ab00f4e14fb4e9aa7189fb4d55c4d60d77e93479cb062405947d216d3"
+  },
+  "model_outputs_seen": false,
+  "gui_calls": 0,
+  "server_started": false,
+  "tests_run": false,
+  "materialization": "Server and synthetic simulator implement frozen layouts; actual pagination must be checked on source capture. Workbook authored with bundled Artifact Tool; visual preview verified."
+}

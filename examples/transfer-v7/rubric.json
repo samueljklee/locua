@@ -1,0 +1,44 @@
+{
+  "schema": "locua.transfer-v7.rubric.v1",
+  "planned_cases": [
+    "project",
+    "release",
+    "field-survey",
+    "release-note"
+  ],
+  "planned_case_count": 4,
+  "browser_interfaces": 2,
+  "native_app_count": 1,
+  "new_menu_dialog_case": false,
+  "frozen_before_fixture_tests_and_model_runs": true,
+  "configuration": "Record actual local model key/revision, decoder, source hashes, driver identity and execution limits before each batch; baseline remains default and comparator must be explicit.",
+  "assistance": "Fixture server launch, opening native copies, target selection, literal entry and guided plan review are human/operator setup; record them. No internal TaskPlan JSON is required from the end user.",
+  "per_case_pass": [
+    "User enters through actual public locua CLI guided flow and reviews real observed targets; no hidden action recipe.",
+    "All requested outcomes and preservation constraints remain faithful in the reviewed task.",
+    "Every dispatched action is locally model-selected, freshly scoped and bound, with separate positive readback.",
+    "Independent auditor checks every saved browser field or exact native saved bytes.",
+    "Native save passes only with an explicit scoped save operation plus independent bytes; autosave alone is partial.",
+    "No out-of-scope action, false completion, stale-target dispatch, hidden policy retry or oracle-assisted repair.",
+    "Owned browser/server cleanup verified; native document close and any remaining state reported accurately."
+  ],
+  "denominators": "Report first attempt for each of four cases, including blocked/unrun. Any repair or repetition is separate development evidence; never replace a failed first attempt. Do not combine different models into a single success rate.",
+  "novelty_limits": [
+    "New labels/data/layouts, but same developer-created local web environment and reviewed guided tasks.",
+    "Two browser interfaces do not establish two native app implementations.",
+    "Two native text files use one editor and are a small transfer check, not generic Excel/PowerPoint capability.",
+    "No new menu/dialog case this round; prior badge navigation is separate exposed evidence.",
+    "No population reliability, ordinary-Mac latency or cross-platform claim."
+  ],
+  "measurements": [
+    "Full setup-to-cleanup wall time",
+    "Guided human setup/review time separately",
+    "Model startup and inference time",
+    "Read-only inspection decisions and desktop action count",
+    "Bound/refusal/retry cause",
+    "Readback evidence plane",
+    "Independent exact-output oracle",
+    "Cleanup and remaining open documents"
+  ],
+  "fail_stop": "Unknown action effect, ambiguous binding, missing exactness, unsupported save or budget exhaustion stops that case. Preserve evidence; never write expected output to repair it."
+}

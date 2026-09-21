@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "locua"
+version = "0.1.0"
+description = "Local computer-use experiments with explicit scope and verified progress."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+amplifier = [
+    "amplifier-core==1.6.1",
+    "amplifier-module-loop-streaming @ git+https://github.com/microsoft/amplifier-module-loop-streaming@20aac7a9eb26034d230357f6aa6805f27c86df52",
+    "amplifier-module-context-simple @ git+https://github.com/microsoft/amplifier-module-context-simple@2bc8b15770f4ecb49bd6216a8b5336e9c36adfc6",
+]
+hosted-comparison = [
+    "amplifier-module-provider-openai @ git+https://github.com/microsoft/amplifier-module-provider-openai@e5c2f62df605a231a81c2407b7c2b5a6422e3a75",
+    "amplifier-module-provider-anthropic @ git+https://github.com/microsoft/amplifier-module-provider-anthropic@082f5c49c75dc4efe1fb4415bb89cee3bc349530",
+    "openai==3.16.2",
+    "anthropic==1.7.0",
+]
+
+[project.scripts]
+locua = "locua.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+locua = ["SMART_TOOL.md", "docs/*.md", "**/*.md", "**/*.json", "**/*.txt", "**/*.swift", "**/*.sb"]

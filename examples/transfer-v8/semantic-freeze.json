@@ -1,0 +1,15 @@
+{
+  "schema": "locua.transfer-v8.semantic-freeze.v1",
+  "created_at": "2026-09-18T18:44:29.103754+00:00",
+  "files": {
+    "cases.json": "1f68c830fed41f1a0a885104d8dba2f709280857d1bfa3d58ae4f39a501789bb",
+    "gold.json": "61c804a0975074e821c6da620e26d3682cb81a5b7fd27d3d907dfe4ab84d71cb",
+    "language-cases.json": "13d927b04c8e073747b40ba55069ef1889d0476b34106005688004bb03c00e09",
+    "protocol.json": "89ddf83c4b994dcc995cea8aa0fc90488747c6cd26fbcb7758229fbc5820c2e8"
+  },
+  "live_cases": 4,
+  "language_cases": 8,
+  "observed_model_outputs": false,
+  "policy_implementation_started": false,
+  "scope": "Immutable requests, layouts, expected semantics and rubric. Server/workbook materialization and tests will be separately hashed before inference; no change to these definitions."
+}

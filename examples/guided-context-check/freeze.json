@@ -1,0 +1,19 @@
+{
+  "schema": "locua.guided-context-check.freeze.v1",
+  "created_at_utc": "2026-09-18T16:34:42.811456+00:00",
+  "classification": "separate_development_repair_validation",
+  "case_count": 1,
+  "include_in_frozen_v7_denominator": false,
+  "model_runs_before_freeze": 0,
+  "live_browser_runs_before_freeze": 0,
+  "oracle_in_model_inputs": false,
+  "files": {
+    "README.md": "f805387bd87351dd18e338d2220ef67c491be4ff5412f2ceee3344fb807a5ce7",
+    "initial.json": "a0f7e9fb8daf5dc05a39af2ddb5d4af011f2b06d25afebb61f27dc7846d08ea9",
+    "oracle.json": "2a59c2ec0ccbc7c2e2c1a490408ee74a382344854c0f6a62e5173648dba8a1f9",
+    "server.py": "45ffcf091eed63087e68091b449b5d89424d1bb412f8fa47378fd24acaaa5c63",
+    "task.txt": "c18119c131f57af35903c553f34faf7fd5b1ca737a83d3d2b152de3517849770",
+    "test_fixture.py": "7a364898517e8da21bf3d18e3915132404056d1b69b7f7694def95e98db3ef5d",
+    "verify.py": "70d041c1609ff1054f8868ee9064c6b7b64f460c2316f3e778c78b86191fce4e"
+  }
+}
