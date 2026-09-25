@@ -26,6 +26,7 @@ _TEXT = {"AXTextField", "AXTextArea", "AXSearchField", "AXComboBox"}
 _DISPLAY = _TEXT | {"AXStaticText", "AXHeading"}
 _SELECTED = {"AXRadioButton", "AXTab", "AXRow", "AXCell"}
 _STATIC_SLOT = "rendered_static_text_slot"
+_DISPLAY_VALUE = "display_value"  # Internal read-only preservation predicate.
 _NATIVE_VALUE_LABEL = "pinned_native_value_fallback_trim"
 # Rust str::trim uses Unicode White_Space, not Python's extra U+001C..001F.
 _RUST_WHITESPACE = "\t\n\v\f\r \u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
@@ -199,7 +200,7 @@ def _identity(control, observation, policy):
     item = _semantic(control)
     # Drop only fields proved to be derived from this control's observed value
     # at binding time, never ancestor labels or all names indiscriminately.
-    display = _display(control)
+    display = control.get("value") if policy.get("display_value_only") else _display(control)
     for key in policy["value_derived_fields"]:
         current = item["name"] if key == "name" else item["semantics"].get(key)
         if key == "name" and policy.get("name_derivation") == _NATIVE_VALUE_LABEL:
@@ -364,11 +365,11 @@ def _single_readout_anchors(parent, siblings, rows, observation, contract):
 def _identity_policy(control, observation, kind):
     semantics = _semantic(control)
     derived = []
-    display = _display(control)
+    display = control.get("value") if kind == _DISPLAY_VALUE else _display(control)
     # Text editors can legitimately expose AXValue as their accessibility name.
     # A readable arithmetic surface may similarly name itself with its result.
-    if kind in ("text", "calculation") and isinstance(display, str):
-        if kind == "text" or _numeric(display) is not None:
+    if kind in ("text", "calculation", _DISPLAY_VALUE) and isinstance(display, str):
+        if kind in ("text", _DISPLAY_VALUE) or _numeric(display) is not None:
             if semantics["name"] == display: derived.append("name")
             for key in ("title", "description", "value_description"):
                 if semantics["semantics"][key] == display: derived.append(key)
@@ -388,10 +389,12 @@ def _identity_policy(control, observation, kind):
         raise BindingError("target_has_no_stable_identity")
     policy = {"value_derived_fields": derived, "require_bounds": bool(derived and _bounds(control))}
     if name_derivation is not None: policy["name_derivation"] = name_derivation
+    if kind == _DISPLAY_VALUE:
+        policy.update(read_only=True, display_value_only=True)
     return policy
 
 
-def _property(outcome, control):
+def _property(outcome, control, *, allow_unknown_state=False):
     kind, role = outcome.get("kind"), control.get("role")
     plane = outcome.get("evidence_plane")
     if plane not in ("display", "editor_buffer"):
@@ -399,11 +402,18 @@ def _property(outcome, control):
     if kind == "state":
         if plane != "display" or type(outcome.get("value")) is not bool:
             raise BindingError("state_requires_display_boolean")
-        if role == "AXCheckBox": prop = "checked"
+        if 'property' in outcome:
+            prop = outcome['property']
+            if prop not in ('checked', 'selected'):
+                raise BindingError('state_property_not_supported')
+        elif role == "AXCheckBox": prop = "checked"
         elif role in _SELECTED: prop = "selected"
-        else: raise BindingError("state_role_semantics_unproved")
+        else: raise BindingError("state_role_semantics_unproved: specify the intended state property (selected or checked). "
+            "An initially unknown property can be reviewed with an explicit one-time press; "
+            "a goal-toggle effect still requires known fresh state, and verification requires an observed boolean.")
         if type(control.get("states", {}).get(prop)) is not bool:
-            raise BindingError("state_property_unknown")
+            if not (allow_unknown_state and control.get('states', {}).get(prop) is None):
+                raise BindingError("state_property_unknown")
         return prop, "display"
     if kind == "text":
         if role not in _TEXT or not isinstance(outcome.get("value"), str):
@@ -413,6 +423,18 @@ def _property(outcome, control):
                 or proof.get("plane") != "editor_buffer" or not isinstance(control.get("value"), str)):
             raise BindingError("exact_editor_value_unknown")
         return "value", "editor_buffer"
+    if kind == _DISPLAY_VALUE:
+        # A native popup or readout may have a displayed value without being
+        # an editor. Do not fall back to a label, convert nonstrings, or promote
+        # this trimmed/possibly-placeholder projection into exact AXValue,
+        # editor-buffer, document-content, saved-output or input authority.
+        if plane != "display" or not isinstance(outcome.get("value"), str):
+            raise BindingError("display_preservation_requires_display_string")
+        if role in _TEXT:
+            raise BindingError("editor_preservation_requires_exact_buffer: inspect the editor's exact value evidence")
+        if not isinstance(control.get("value"), str):
+            raise BindingError("display_value_unknown: selected control has no observed string value; inspect a readable value control")
+        return "value", "display"
     if kind == "calculation":
         if plane != "display" or role not in _DISPLAY or not isinstance(_display(control), str):
             raise BindingError("calculation_requires_readable_display")
@@ -467,7 +489,10 @@ def _bind(outcome, control, observation, *, retained_review=False):
     peers = [c for c in observation["controls"] if c.get("id") == control.get("id")]
     if len(peers) != 1 or peers[0] != control:
         raise BindingError("control_not_in_observation")
-    prop, plane = _property(outcome, control)
+    # Review may name a future predicate without pretending it is observed now.
+    # Only explicit properties permit this; final verification remains strict.
+    prop, plane = _property(outcome, control,
+        allow_unknown_state=retained_review and 'property' in outcome)
     try:
         policy = _identity_policy(control, observation, outcome["kind"])
     except BindingError:
@@ -491,6 +516,15 @@ def _bind(outcome, control, observation, *, retained_review=False):
             "read_only": policy.get("read_only", False)},
         "coverage_complete_at_binding": observation.get("coverage", {}).get("complete"),
         "uniqueness_scope": "captured_controls"}
+    if prop in ('checked', 'selected'):
+        state = control.get('states', {}).get(prop)
+        binding['review_descriptor'].update(state_at_binding=deepcopy(state),
+            state_observed_at_binding=type(state) is bool)
+    if outcome["kind"] == _DISPLAY_VALUE:
+        binding["review_descriptor"].update(
+            value_precision="display_only", exact_raw_axvalue_proven=False,
+            no_write_authority=True,
+            limit="Observed display string only; may be trimmed or a placeholder. Exact editor buffer, committed content and saved output are not proved.")
     if policy.get("mode") == _STATIC_SLOT:
         binding["review_descriptor"].update(
             sibling_index=identity["sibling_index"], sibling_roles=deepcopy(identity["sibling_roles"]),
@@ -560,9 +594,29 @@ def _refresh(binding, observation):
 def matches_binding(binding, observation, control_id):
     """Identity-only authority check; never filters on the requested value."""
     try:
-        if binding.get("identity_policy", {}).get("mode") == _STATIC_SLOT:
+        if binding.get("identity_policy", {}).get("read_only") is True:
             return False
         return _refresh(binding, observation)["id"] == control_id
+    except (ValueError, TypeError, KeyError):
+        return False
+
+
+def matches_retained_identity(binding, observation, control_id):
+    """Resolve a historical choice to a reviewed identity, never authorize input.
+
+    Review/thinking latency may exceed the fresh-evidence limit. Callers must
+    still use the ordinary fresh permission and verification path before input.
+    No timestamp is changed and a different/ambiguous identity is not accepted.
+    """
+    try:
+        _check_binding(binding)
+        if binding.get('identity_policy', {}).get('read_only') is True:
+            return False
+        _validate(observation, binding['target'], max_age_s=None)
+        if observation['observed_at_ns'] < binding['bound_at_ns']:
+            return False
+        peers = _peers(binding, observation)
+        return len(peers) == 1 and peers[0]['id'] == control_id
     except (ValueError, TypeError, KeyError):
         return False
 
@@ -620,6 +674,10 @@ def verify(binding, outcome, observation, *, number_format=None):
             "numeric_interpretation": interpretation if prop == "numeric_display" else None,
             "committed_document_proven": False, "saved_output_proven": False,
             "binding_review_required": True}
+        if outcome["kind"] == _DISPLAY_VALUE:
+            evidence.update(value_precision="display_only", exact_raw_axvalue_proven=False,
+                editor_buffer_proven=False, no_write_authority=True,
+                value_projection_limits=deepcopy(control.get("value_evidence", {})))
         return {"matched": matched, "status": "matched" if matched else "mismatch",
                 "reason": "bound_predicate_established" if matched else "bound_predicate_not_met", "evidence": evidence}
     except (ValueError, TypeError, KeyError) as error:

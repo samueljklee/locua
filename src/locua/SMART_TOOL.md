@@ -2,7 +2,7 @@
 {
   "smart_tool_format": 1,
   "name": "locua",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Proposes and executes explicitly scoped computer-use tasks with fresh observation guards. Local models are the default; hosted comparison providers require explicit selection. Use for automation experiments where action evidence and safe stopping matter.",
   "use_cases": [
     "Inspect a desktop target without sending its contents to an online model",
@@ -16,115 +16,42 @@
   ]
 }
 ---
-The library is the tool: import `locua.lib` for typed results and compose calls
-in Python. The CLI exposes the same functions. Commands print JSON to stdout; interactive `do` and guided `start`
-prints a concise result by default and supports `--json`. Progress and review go
-to stderr. No model or desktop service starts during import or help.
+The library is the tool: `locua.lib` exposes the same capabilities as the thin
+CLI. Help, imports and configuration never load a model or start desktop services.
 
-This is an experimental local automation tool. `do` explicitly uses the local 7B
-comparator as its preview default; `run` and manual `start` retain the 1.5B baseline.
-Native language mode uses Amplifier's standard loop with ordinary local tool
-calling; RLCD is not used in that path. Original RLCD remains unchanged in
-`--harness legacy`, explicit URL/document adapters, manual mode and reviewed `run`.
-Explicit `--model qwen38` selects the local Qwen3.8-27B-4bit experimental
-comparator, only in native Amplifier mode. It uses ordinary nonthinking tool
-generation and separately verified model files; there is no automatic fallback.
-Add `--thinking` only with local `--model qwen38` for the bounded thinking
-experiment: 2048 total reasoning and final-output tokens, with prefix cache off.
-A valid plan or schema is not proof of
-faithful intent, correct actions, or task completion.
+Use `locua "describe the outcome"`. Locua discovers the app/UI, presents a readable
+review, performs guarded actions after approval, and verifies the requested result.
+Native `do` and language `start` default to **local qwen38 (Qwen3.8-27B)**,
+**step-v2** tools and **continuity-v1** instructions through Amplifier ordinary
+nonthinking tool calling. **RLCD is not used in this path.** These are the selected
+0.2.0 preview defaults, not a general reliability claim. To spell them out, use
+`--model qwen38 --tool-profile step-v2 --instruction-profile continuity-v1`.
 
-Start with `locua setup --help`, configure explicit local paths, then run
-`locua doctor`. Use `locua "describe the outcome"` for local goal interpretation
-and plan review, or `locua start --manual` for explicit field selection.
-Use `locua do --help` for current interpretation limits. Use `locua run --task task.json --out ./run-preview` to inspect a
-proposal. `run` requires `--execute` for desktop mutation; interactive `do` and `start` require
-typing `run` before task inputs. The native `do` path can discover, open and activate
-an application before review. Failed/unknown desktop effects do not
-authorize automatic retries. Use a new output directory for each run and inspect
-its task state after an interruption.
+Discovery and requested app activation can precede review. Check the complete
+request and constraints, then type `run` to allow task input. The model chooses
+next actions from observed evidence; guards and fresh verification retain authority.
+A launch, a plan or a model completion statement alone is not task completion.
+Progress/review go to stderr; final interactive results are readable by default
+and `--json` returns structured output. Other capabilities print JSON.
 
-Native `do` gives the complete request to the selected model through Amplifier;
-the default model remains local.
-Discovery, launch/reuse, region inspection, clarification, reviewed task inputs
-and fresh verification are tools available throughout the session. Outcomes do
-not all need binding before exploration. Explicit `--url`/`--document` retain the
-separate observed-field language workflow. Inspection/save/browser-route options
-apply to those legacy adapters, not to the new native tool loop.
-`start --manual` and reviewed `run --task`
-remain separate entry points. Native opening, calculation, text and boolean-state
-capabilities are experimental. Unsupported navigation, new-document identity,
-preservation or saved-output proof stops rather than weakening the request.
-Malformed ordinary tool calls are retained and refused, without silently repaired
-arguments. A verified reviewed scope means fresh predicates passed after a human
-reviewed request coverage; it is not independent proof of language fidelity.
+`--model`, `--tool-profile` and `--instruction-profile` remain explicit overrides.
+`--model comparator` is local 7B; `--model baseline` is local 1.5B. Native mode uses
+ordinary tool calls with every model. Original RLCD remains unchanged in legacy,
+explicit URL/document, manual and reviewed-run paths. No automatic model/provider
+fallback is permitted. Hosted comparisons require explicit provider/model selection,
+private credentials and a shared spend ledger; see `docs/profiles.md`.
 
-Hosted comparison is experimental; no desktop acceptance or model ranking is
-claimed. The current Anthropic configuration returned a service refusal before
-any tool call in its connection gate; no fallback was used.
-Native `do`/language `start` accepts explicit
-`--provider openai --model gpt-5.6-sol` or
-`--provider anthropic --model claude-opus-5`. Install
-`.[amplifier,hosted-comparison]`; put literal `OPENAI_API_KEY` and/or
-`ANTHROPIC_API_KEY` assignments in private `~/.amplifier/keys.env` (mode `0600`).
-The file is read without execution, and keys must not appear in task text or
-artifacts. These options use existing official Amplifier providers and ordinary
-tool calling, not RLCD; they do not apply to legacy, URL/document, manual or
-reviewed `run` paths. Hosted reasoning is fixed at medium; `--thinking` is local-only.
+`start --manual` is the optional field picker. `run --task` previews a supplied
+reviewed plan and requires `--execute` for task input. Neither is the normal
+ordinary-language user experience. Native buffer verification does not prove
+saved-file content; unsupported persistence/preservation requirements stop.
 
-Hosted requests must name one installed application literally. For a document,
-quote its exact existing window title. Ambiguous/unmatched scope stops. The
-request and scoped UI content leave the machine; unrelated windows, recent-file
-entries and raw driver metadata are excluded from the model view. Full private
-traces remain local. `--task-observations` applies the same restricted view to a
-local comparison. This does not provide arbitrary aliases or multi-app scope.
+Install/configure cached weights, local runtime and Cua Driver using
+`docs/installation.md`, then run `locua doctor`. Execution currently targets
+Apple Silicon macOS; other platforms are unverified. One desktop-control session
+is allowed at a time. UI content cannot add task authority, and failed/uncertain
+input does not authorize blind retries.
 
-Hosted calls have retries/fallback disabled, a 120-second completion bound,
-24,576 input-token limit and 2,048 total output-token limit. A persistent shared
-**$15 ledger** reserves cost before each actual SDK dispatch, retaining uncertain
-charges. The macOS default is
-`~/Library/Application Support/locua/hosted-budget.json`; use the same explicit
-`--budget-ledger PATH` across comparison runs. Cost reports are conservative
-estimates, not invoices. Do not delete or change ledgers to reset the cap.
-Local defaults and every retained RLCD option remain unchanged.
-
-`--tool-profile fresh-region-v1` is an explicit native Amplifier experiment:
-after input, it returns a compact overview and an unfiltered page of fresh
-controls from the uniquely corresponding structural region. All other regions
-and page continuations remain discoverable. Ambiguous region correspondence
-falls back to discovery; every input still requires the unchanged fresh guards.
-`--tool-profile baseline` remains the default. The library `do`/`start` accepts
-the equivalent `tool_profile` option. No completion or performance improvement
-is implied by selecting this experimental view.
-
-`--tool-profile execution-state-v1` is a separate local-only experiment. It
-retains a bounded factual record of approved goals, issued actions and failed
-checks through Amplifier context compaction. Historical observations are marked
-as potentially stale and never authorize input. It uses baseline tool responses,
-does not choose actions, and does not enable the fresh-region experiment.
-It currently rejects `--task-observations` because its retained facts do not use
-that disclosure projection; it cannot be used with hosted inference.
-
-`--instruction-profile` selects a separate, unproven prompt experiment in the
-native Amplifier loop. `baseline` preserves the original policy and remains the
-default. `concise-v1` changes only the system operating policy;
-`concise-examples-v1` adds two development examples to that policy;
-`concise-help-v1` instead changes top-level tool help alongside that policy.
-All variants retain the same argument schemas, observations, action guards,
-verification, provider/model settings and decoding. The library `do`/`start`
-accepts the equivalent `instruction_profile` option. No variant is a demonstrated
-reliability improvement merely because it is installed. Hosted experiments still
-require explicit provider/model selection and their authorized spending limits.
-`--budget-cap-usd N` declares the cap of that hosted ledger (at most $15). An
-existing ledger must match; the option never clears charges or reservations.
-
-No online model fallback is permitted. Runtime inference currently targets macOS
-and MLX; Windows and Linux desktop/inference support is unverified. Raw editor,
-committed document, saved-file and visible display evidence remain distinct.
-Native Excel cell binding is not implied by saved-file reads or OCR labels.
-
-Installation and prerequisites: `docs/installation.md`. Each capability's arguments,
-result, example and failure behavior: `locua <capability> --help`. Detailed usage
-is shipped in `docs/usage.md`. Application/window discovery precedes target binding;
-task inputs are limited to the reviewed scope. UI text cannot add authority. Trace files stay local and may contain
-private desktop text; choose an appropriate output directory.
+Current limitations and next checkpoint: `docs/gaps.md`. Compatibility options:
+`docs/profiles.md`. Detailed capability guidance: `locua <capability> --help` and
+`docs/usage.md`. Local traces may contain private UI text and are not committed.

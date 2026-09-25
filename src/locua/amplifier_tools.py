@@ -20,11 +20,27 @@ from .desktop_tools import DesktopTools
 from .engine.prototype.cli import private_json
 from .engine.prototype.core import _identity, _signature
 from . import progressive_ui
-from .amplifier_contracts import SPECS, PRESERVE, ArgumentContractError, validate_tool_arguments
+from .amplifier_contracts import SPECS, PRESERVE, ArgumentContractError, validate_tool_arguments, persistence_specs, TEXT_PERSISTENCE_CONTRACT, LEGACY_PERSISTENCE_CONTRACT
 from .exploration import Exploration
 from .engine.prototype.perception import validate_observation
-from .goal_verification import (BindingError, _DISPLAY, bind_for_review,
+from .goal_verification import (BindingError, _DISPLAY, _TEXT, bind_for_review,
                                 check_review_predicate, matches_binding, matches_readback_identity, verify)
+
+
+def _proven_installed_app(app):
+    """PID-independent identity only after the declared bundle checks succeed.
+
+    Exact declared paths stay distinct even if the filesystem resolves aliases.
+    This is evidence for discovery deduplication, never dispatch authority.
+    """
+    from .desktop_tools import _bundle_executable
+    from xml.parsers.expat import ExpatError
+    if not isinstance(app,dict):return None
+    try:
+        installed=_bundle_executable(app)
+    except (ValueError,OSError,TypeError,ExpatError):return None
+    return {'bundle_id':app['bundle_id'],'launch_path':app['launch_path'],
+            'installed_bundle':installed}
 
 
 def _hash(value):
@@ -144,31 +160,50 @@ def model_projection(result, *, full_response_ref):
 
 class _Tool:
     def __init__(self,toolset,name):
-        self.toolset=toolset;self.name=name;self.description=SPECS[name][0];self.input_schema=deepcopy(SPECS[name][1])
+        self.toolset=toolset;self.name=name;self.description=toolset._specs[name][0];self.input_schema=deepcopy(toolset._specs[name][1])
     async def execute(self,input):
         from amplifier_core.models import ToolResult
         async with self.toolset._async_lock:
             output=self.toolset.call(self.name,input)
         # Success indicates the tool completed its operation, not task success.
-        return ToolResult(success=output.get('status') not in ('refused','unavailable','uncertain','canceled'),output=output)
+        return ToolResult(success=output.get('status') not in ('refused','unavailable','uncertain','canceled','blocked'),output=output)
 
 
 class DesktopToolset:
-    def __init__(self,config,out,request,ask,progress=None,desktop=None,tool_profile='baseline'):
+    def __init__(self,config,out,request,ask,progress=None,desktop=None,tool_profile='baseline',persistence_contract=None):
         if not isinstance(request,str) or not request.strip():raise ValueError('Original request required')
-        if tool_profile not in ('baseline','fresh-region-v1','execution-state-v1'):raise ValueError('Unknown tool profile')
+        if tool_profile not in ('baseline','fresh-region-v1','execution-state-v1','continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'):raise ValueError('Unknown tool profile')
         self.tool_profile=tool_profile
+        self.persistence_contract=persistence_contract
+        self._specs=persistence_specs(SPECS,contract=persistence_contract)
         self.request=request;self.ask=ask;self.progress=progress or (lambda _:None)
         self.out=Path(out);self.out.mkdir(parents=True,exist_ok=False);self.out.chmod(0o700)
         self.desktop=desktop if desktop is not None else DesktopTools(config,self.out/'desktop')
         self._async_lock=asyncio.Lock();self._lock=threading.RLock()
         self._app_records={};self._inventories={};self._window_records={};self._observations={};self._latest={};self._actions={}
         self._snapshot_refs={};self._driver_actions={}
-        self._scopes={};self._closed=False;self._review_sequence=0;self._cancellation=None
+        self._scopes={};self._closed=False;self._review_sequence=0;self._attention_sequence=0;self._cancellation=None
         self.exploration=Exploration()
-        self.evidence={'request':request,'request_sha256':_hash(request),'events':[],
+        self.evidence={'persistence_contract':persistence_contract or LEGACY_PERSISTENCE_CONTRACT,'request':request,'request_sha256':_hash(request),'events':[],
             'scopes':{},'verification':{},'task_complete':False,'completion_authority':'fresh reviewed goals only; original request coverage requires caller assessment'}
-    def tools(self):return [_Tool(self,name) for name in SPECS]
+        self.model_interface=None
+        if tool_profile=='continuity-v1':
+            from .model_interface import ModelInterface
+            self.model_interface=ModelInterface(self)
+        elif tool_profile=='semantic-v1':
+            from .semantic_projection import SemanticModelInterface
+            self.model_interface=SemanticModelInterface(self)
+        elif tool_profile=='semantic-v2':
+            from .semantic_projection_v2 import SemanticV2ModelInterface
+            self.model_interface=SemanticV2ModelInterface(self)
+        elif tool_profile=='step-v1':
+            from .step_interface import StepModelInterface
+            self.model_interface=StepModelInterface(self)
+        elif tool_profile=='step-v2':
+            from .step_interface import StepNamedModelInterface
+            self.model_interface=StepNamedModelInterface(self)
+    def tools(self):
+        return self.model_interface.tools() if self.model_interface else [_Tool(self,name) for name in self._specs]
     def _write_evidence(self):
         temporary=self.out/('evidence-'+uuid.uuid4().hex+'.tmp')
         private_json(temporary,self.evidence)
@@ -226,6 +261,20 @@ class DesktopToolset:
             name in ('locua_observe','locua_inspect','locua_windows','locua_apps') and
             visible.get('status') in ('refused','unavailable','uncertain'))
         response_limit=MODEL_RESPONSE_BYTES-1200 if reserved else MODEL_RESPONSE_BYTES
+        if self._response_bytes(visible)>response_limit and isinstance(visible.get('overview'),dict):
+            # Fit discovery around the complete input receipt, including public
+            # references and verification. Re-page retained evidence rather than
+            # replacing a successful operation with a representation failure.
+            page=visible['overview'];captured=self._observations.get(page.get('snapshot_id'))
+            allowance=self._response_bytes(page)-(self._response_bytes(visible)-response_limit)-128
+            if captured is not None and page.get('version')==progressive_ui.VERSION and allowance>=2048:
+                try:
+                    smaller=progressive_ui.overview(captured,
+                        actions=list(self._actions[captured['snapshot_id']].values()),
+                        max_bytes=allowance)
+                    visible={**visible,'overview':smaller}
+                except ValueError:
+                    pass  # An unpageable receipt still uses the no-replay error.
         if self._response_bytes(visible)>response_limit and isinstance(visible.get('fresh_region'),dict):
             # Verification receipts vary in size. Budget continuation against
             # the complete enriched envelope, never fixed view allowances alone.
@@ -290,9 +339,14 @@ class DesktopToolset:
                 return self._record(name,args,deepcopy(self._cancellation))
             try:
                 if self._closed:raise ValueError('Toolset is closed')
-                if name not in SPECS or not isinstance(args,dict):raise ValueError('Unknown tool or nonobject arguments')
-                validate_tool_arguments(name,args)
-                result=getattr(self,'_'+name[len('locua_'):])(**args)
+                if name not in self._specs or not isinstance(args,dict):raise ValueError('Unknown tool or nonobject arguments')
+                validate_tool_arguments(name,args,specs=self._specs)
+                persistence=(self._text_persistence(args['goals'],stage='before_snapshot_binding')
+                    if name=='locua_review' else None)
+                if persistence is not None and not persistence['all_requirements_satisfied']:
+                    result=self._persistence_refusal(persistence)
+                else:
+                    result=getattr(self,'_'+name[len('locua_'):])(**args)
             except ArgumentContractError as error:
                 result=error.as_result()
             except (ValueError,KeyError,TypeError) as error:
@@ -420,11 +474,31 @@ class DesktopToolset:
         if window_id not in self._window_records:
             raise ValueError('Use the public window_id (window:...) returned by locua_windows, observe, inspect or review; native target.window_id is metadata. Recover references with locua_status operation=windows.')
         return self._window_records[window_id]['target']
+    def _number_format_app(self,target):
+        app_ids={w['app_id'] for w in self._window_records.values() if w['target']==target}
+        if len(app_ids)==1:return self._app_records.get(next(iter(app_ids)))
+        if not app_ids or self.tool_profile not in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'):return None
+        apps=[self._app_records.get(identifier) for identifier in sorted(app_ids)]
+        identities=[_proven_installed_app(app) for app in apps]
+        if identities[0] is None or any(identity!=identities[0] for identity in identities):return None
+        # The probe independently rechecks this exact target's process ownership.
+        # These aliases have one proven installed identity, not competing apps.
+        return apps[0]
     def _windows_result(self,app_id,result):
         rows=[]
+        installed=(_proven_installed_app(self._app_records.get(app_id))
+                   if self.tool_profile in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') else None)
         for w in result.get('windows',[]):
             target={k:w[k] for k in ('pid','window_id')}
-            identifier='window:'+_hash({'app_id':app_id,'target':target})[:24]
+            identity={'app_id':app_id,'target':target}
+            proof=w.get('app_identity_evidence') or {};process=proof.get('process') or {}
+            if (installed and proof.get('installed_bundle')==installed['installed_bundle']
+                and proof.get('process_rechecked') is True and process.get('pid')==target['pid']
+                and process.get('executable_path')==installed['installed_bundle']['executable_path']
+                and isinstance(process.get('started_at_utc'),str) and process['started_at_utc']):
+                identity={'installed_app':installed,'target':target,
+                          'process_started_at_utc':process['started_at_utc']}
+            identifier='window:'+_hash(identity)[:24]
             self._window_records[identifier]={'target':target,'app_id':app_id,'raw':deepcopy(w)}
             rows.append({'window_id':identifier,'target':target,'title':w.get('title'),'is_on_screen':w.get('is_on_screen'),
                          'on_current_space':w.get('on_current_space'),'identity_proven':bool(w.get('app_identity_evidence'))})
@@ -484,6 +558,7 @@ class DesktopToolset:
         result=self.desktop.observe(target)
         if result.get('status')!='observed':return result
         o=result['observation'];sid=self._retain(o)
+        self._show_attention(o, label='window overview')
         return {'status':'observed','snapshot_id':sid,'target':o['target'],
             'overview':self._overview(o),
             'control_count':len(o['controls']),'coverage':o.get('coverage'),'task_complete':False}
@@ -494,17 +569,98 @@ class DesktopToolset:
     def _inspect(self,snapshot_id,operation,region_id=None,control_id=None,query=None,role=None,cursor=None,limit=128):
         o=self._observation(snapshot_id);actions=list(self._actions[snapshot_id].values())
         if operation=='overview':
-            return progressive_ui.overview(o,actions=actions,cursor=cursor,limit=limit)
-        if operation=='list':
-            return progressive_ui.listing(o,region_id=region_id,role=role,query=query,
-                actions=actions,cursor=cursor,limit=limit)
-        if operation=='control':
-            return progressive_ui.detail(o,control_id,actions=actions,cursor=cursor)
-        raise ValueError('Use overview, list, or control')
+            result = progressive_ui.overview(o,actions=actions,cursor=cursor,limit=limit)
+        elif operation=='list':
+            result = progressive_ui.listing(o,region_id=region_id,role=role,query=query,
+                actions=actions,cursor=cursor,limit=limit,
+                include_values=self.tool_profile in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'))
+        elif operation=='control':
+            result = progressive_ui.detail(o,control_id,actions=actions,cursor=cursor)
+        else:
+            raise ValueError('Use overview, list, or control')
+        ids = ([control_id] if operation=='control' else
+               [row[0] for row in result.get('items', []) if isinstance(row,list)] if operation=='list' else None)
+        label = ('control '+str(self._find(o,control_id).get('name') or self._find(o,control_id)['role'])
+                 if operation=='control' else 'listed UI region' if operation=='list' else 'window overview')
+        self._show_attention(o, control_ids=ids, label=label, retained=True)
+        return result
+    def _show_attention(self,o,**kwargs):
+        show=getattr(self.desktop,'attention',None)
+        if show is None:return
+        try:
+            result=show(o,**kwargs)
+        except Exception as exc:
+            result={'status':'unavailable','reason':str(exc)}
+        self._attention_sequence+=1
+        private_json(self.out/f'attention-{self._attention_sequence:03d}.json',result)
+        if result.get('status')=='shown':
+            suffix=' (retained snapshot; no input)' if kwargs.get('retained') else ' (no input)'
+            self.progress('Cursor: reading '+kwargs.get('label','UI')+suffix+'.')
+        else:
+            self.progress('Cursor unavailable: '+str(result.get('reason','unsupported driver'))+'.')
     def _find(self,o,cid):
         rows=[c for c in o['controls'] if c['id']==cid]
         if len(rows)!=1:raise ValueError('Control absent/ambiguous in current observation')
         return rows[0]
+    def _text_persistence(self,goals,*,stage):
+        """Requirements are model declarations; only trusted file evidence can prove them.
+
+        This generic owner has neither a trusted document/file binding nor a
+        supported way to prevent an application's autosave during buffer input.
+        Accepting an arbitrary path or observing a hash cannot grant that input
+        authority. Required persistence is deliberately unsupported here.
+        """
+        if self.persistence_contract is None:
+            return {'contract_version':LEGACY_PERSISTENCE_CONTRACT,'stage':stage,
+                    'requirements':[],'unmet':[],'all_requirements_satisfied':True,
+                    'backing_file_status':'unknown','saved_output_proven':False,
+                    'explicit_save_dispatched':None,
+                    'proof_limit':'Historical buffer-only comparison contract; no backing-file preservation guarantee.'}
+        rows=[]
+        for goal in goals:
+            if goal.get('kind')!='text':continue
+            requirement=goal.get('persistence_requirement')
+            missing=requirement not in ('not_requested','backing_file_unchanged','saved_output_required')
+            supported=requirement=='not_requested'
+            rows.append({'goal_id':goal.get('id'),'target':goal.get('target'),
+                'requirement':requirement,'status':'missing' if missing else 'not_requested' if supported else 'unsupported',
+                'satisfied':supported,'backing_file_status':'unknown','saved_output_proven':False,
+                'explicit_save_dispatched':None,
+                'reason':('Text goal requires an explicit persistence_requirement; omission is not not_requested.' if missing else
+                    'No backing-file requirement was declared. Buffer verification does not prove unchanged bytes; the application may autosave.' if supported else
+                    'The generic native editor has no trusted backing-file binding and no supported persistence isolation or saved-output verification. No edit is authorized for this requirement.')})
+        pending=self.evidence.setdefault('unmet_persistence_requirements',[])
+        for row in rows:
+            if not row['satisfied'] and not any(_hash(p)==_hash(row) for p in pending):pending.append(deepcopy(row))
+        return {'contract_version':TEXT_PERSISTENCE_CONTRACT,'stage':stage,'requirements':rows,'unmet':deepcopy(pending),
+                'all_requirements_satisfied':not pending and all(r['satisfied'] for r in rows),
+                'backing_file_status':'unknown','saved_output_proven':False,
+                'explicit_save_dispatched':None,
+                'proof_limit':'No Save dispatch is not proof that backing bytes remained unchanged.'}
+    def _persistence_refusal(self,persistence):
+        requirements={row.get('requirement') for row in persistence['unmet']}
+        reason=('Locua cannot ensure the saved file stays unchanged: this app may save buffer edits automatically. No edit is authorized.'
+            if 'backing_file_unchanged' in requirements else
+            'Locua cannot verify saved output through this editor interface. No edit is authorized.'
+            if 'saved_output_required' in requirements else
+            'The plan must state whether saved-file changes are allowed, forbidden or required. No edit is authorized.')
+        result={'status':'refused','code':'text_persistence_unmet',
+                'reason':reason,
+                'persistence':deepcopy(persistence),'unmet_persistence_requirements':deepcopy(persistence['unmet']),
+                'action_started':False,'task_complete':False,'saved_output_proven':False,
+                'next':'Inspect the explicit persistence requirement. A title, exact buffer or absence of Save cannot establish backing-file identity or prevent autosave. This capability is currently unsupported; do not downgrade the declared requirement.'}
+        if self._cancellation is None and any(row.get('status')=='unsupported' and row.get('requirement') in
+               ('backing_file_unchanged','saved_output_required') for row in persistence['unmet']):
+            # This is a trusted capability boundary, not a repairable argument
+            # error. Use the existing standard-loop stop path before another
+            # generation can reinterpret the unmet requirement.
+            result.update(status='blocked',stop_reason='unsupported_text_persistence',
+                execution_stopped=True,authority_revoked=True,action_started_scope='current_refused_operation')
+            self._cancellation={**deepcopy(result),'status':'blocked',
+                'all_reviewed_goals_verified':False,'backing_file_status':'unknown',
+                'explicit_save_dispatched':None}
+            self.evidence['cancellation']=deepcopy(self._cancellation)
+        return result
     def _review(self,snapshot_id,summary,goals,effects,preserves=None,limitations=None,covers_entire_request=False,unresolved_requirements=None):
         o=self._observation(snapshot_id);preserves=preserves or [];limitations=limitations or []
         unresolved_requirements=unresolved_requirements or []
@@ -516,6 +672,8 @@ class DesktopToolset:
             raise ValueError('Explicit coverage boolean and textual limitations required')
         if covers_entire_request and (not goals or unresolved_requirements):
             raise ValueError('A navigation-only scope or unmet user requirement cannot cover the entire request')
+        persistence=self._text_persistence(goals,stage='before_review')
+        if not persistence['all_requirements_satisfied']:return self._persistence_refusal(persistence)
         bound={};clean=[]
         for g in goals:
             c=self._find(o,g['control_id']);goal={k:deepcopy(v) for k,v in g.items() if k!='control_id'}
@@ -559,9 +717,11 @@ class DesktopToolset:
         keep=[]
         for n,p in enumerate(preserves):
             if not isinstance(p,dict) or set(p)!=set(PRESERVE['required']):raise ValueError('Explicit preservation predicate required')
-            c=self._find(o,p['control_id']);kind='text' if p['property']=='value' else 'state'
+            c=self._find(o,p['control_id'])
+            kind=('text' if c.get('role') in _TEXT else 'display_value') if p['property']=='value' else 'state'
             g={'id':'preserve:'+str(n),'kind':kind,'target':str(c.get('name')),'value':p['value'],
                'evidence_plane':'editor_buffer' if kind=='text' else 'display'}
+            if kind=='state':g['property']=p['property']
             b=bind_for_review(g,c,o)
             if b['property']!=p['property'] or not check_review_predicate(b,g,o)['matched_at_capture']:
                 raise ValueError('Preserved property was unknown or did not match at the retained capture')
@@ -600,7 +760,14 @@ class DesktopToolset:
             if 'sibling_index' in descriptor:label+=' (read-only structural text slot '+str(descriptor['sibling_index'])+')'
             if goal['kind']=='calculation':lines.append('Calculate '+goal['expression']+'; read the result from '+str(label)+'.')
             else:lines.append('Set '+str(label)+' to '+repr(goal.get('value'))+'.')
-            lines.append('  Verify: '+bound[goal['id']]['evidence_plane']+'; value observed at capture '+repr(descriptor.get('value_at_binding'))+'.')
+            if goal['kind']=='state':
+                state=repr(descriptor.get('state_at_binding')) if descriptor.get('state_observed_at_binding') else 'unknown'
+                lines.append('  Verify: '+descriptor['property']+' = '+repr(goal['value'])+
+                    '; state at capture: '+state+'. Fresh explicit readback is required; a press alone is not success.')
+            else:
+                lines.append('  Verify: '+bound[goal['id']]['evidence_plane']+'; value observed at capture '+repr(descriptor.get('value_at_binding'))+'.')
+            if goal['kind']=='text' and self.persistence_contract is not None:
+                lines.append('  Persistence requirement: '+goal['persistence_requirement']+'. Backing-file bytes are not verified; the application may autosave. Reject this scope if unchanged bytes or saved output are required.')
         for effect in approved:
             if effect['kind']=='press':lines.append('Press once: '+str(effect['identity'].get('name'))+' — '+effect['purpose']+'.')
             else:
@@ -708,6 +875,8 @@ class DesktopToolset:
                 'limits':'Checks the original complete reviewed predicates only. No rebinding, action replay, delivery proof or other-side-effect proof.'}}
     def _act(self,scope_id,snapshot_id,action_id,value=None,*,_pre_dispatch=None):
         scope=self._scope(scope_id);o=self._observation(snapshot_id)
+        persistence=self._text_persistence(scope['goals'],stage='before_input')
+        if not persistence['all_requirements_satisfied']:return self._persistence_refusal(persistence)
         if any(s['target']==scope['target'] and s.get('uncertain_action') for s in self._scopes.values()):
             raise ValueError('This target has an uncertain attempted input; read-only reconciliation never restores input authority, including through a new review')
         if o['target']!=scope['target']:raise ValueError('Action target differs from reviewed window')
@@ -925,14 +1094,16 @@ class DesktopToolset:
         self.evidence.setdefault('clarifications',[]).append(deepcopy(row))
         return {'status':'answered',**row}
     def _verify_scopes(self,entries):
+        persistence=self._text_persistence([g for _,_,goals in entries for g in goals],stage='verification')
+        if not persistence['all_requirements_satisfied']:
+            return {**self._persistence_refusal(persistence),'status':'unverified','fresh_refresh':False,'scopes':{}}
         results={};captures={};number_formats={}
         for sid,s,goals in entries:
             key=_hash(s['target'])
             if key not in number_formats and any(g['kind']=='calculation' for g in goals):
                 probe=getattr(self.desktop,'number_format',None)
                 if callable(probe):
-                    app_ids={w['app_id'] for w in self._window_records.values() if w['target']==s['target']}
-                    app=self._app_records.get(next(iter(app_ids))) if len(app_ids)==1 else None
+                    app=self._number_format_app(s['target'])
                     number_formats[key]=probe(app,s['target']) if app else {
                         'status':'unknown','reason':'independent_application_identity_unavailable'}
             if key not in captures:
@@ -977,7 +1148,7 @@ class DesktopToolset:
         has_goals=any(r['goals'] for r in results.values())
         return {'status':'verified' if has_goals and all_bool(r['all_reviewed_predicates_matched'] for r in results.values()) else 'unverified',
                 'scopes':results,'fresh_refresh':True,'saved_output_proven':False,'task_complete':False,
-                'request_coverage_proven':False}
+                'request_coverage_proven':False,'persistence':persistence}
     def final_refresh(self):
         """Caller must also assess original-request coverage; receipts are not Done."""
         if self._cancellation is not None:return deepcopy(self._cancellation)
@@ -992,11 +1163,12 @@ class DesktopToolset:
                 self._write_evidence()
                 return deepcopy(self._cancellation)
             result=self.final_refresh()
+            persistence=self._text_persistence([g for s in self._scopes.values() for g in s['goals']],stage='completion')
             statuses={sid:s['status'] for sid,s in self._scopes.items()}
             blocked=any(status not in ('approved','reconciled_verified') for status in statuses.values())
             complete_declarations=[sid for sid,s in self._scopes.items()
                                    if s['covers_entire_request'] and s['status'] in ('approved','reconciled_verified')]
-            verified=result.get('status')=='verified' and not blocked
+            verified=result.get('status')=='verified' and not blocked and persistence['all_requirements_satisfied']
             finalized={'status':'verified_reviewed_scope' if verified and complete_declarations else 'partial' if verified else 'blocked',
                 'verification':result,'scope_statuses':statuses,
                 'reconciliations':{sid:deepcopy(s['reconciliation']) for sid,s in self._scopes.items() if s.get('reconciliation')},
@@ -1004,8 +1176,13 @@ class DesktopToolset:
                     'scope_ids':complete_declarations,'independent_language_coverage_proven':False},
                 'all_reviewed_goals_verified':verified,'task_complete':False,
                 'saved_output_proven':False,'committed_document_proven':False,
+                'persistence':persistence,'backing_file_status':'unknown','explicit_save_dispatched':None,
                 'limits':['Only captured reviewed predicates have positive proof.',
                           'A complete scope declaration was reviewed by the user; language coverage is not independently inferred.']}
+            if persistence['requirements'] or persistence['unmet']:
+                finalized['limits'].append('Exact editor-buffer readback proves neither unchanged backing-file bytes nor saved output. Automatic persistence is not controlled by this generic adapter.')
+            if not persistence['all_requirements_satisfied']:
+                finalized['reason']=self._persistence_refusal(persistence)['reason']
             self.evidence['final']=deepcopy(finalized)
             self.evidence['scopes']={sid:{k:deepcopy(v) for k,v in s.items() if k!='witness'}|{'witness':s['witness'].view()}
                                      for sid,s in self._scopes.items()}

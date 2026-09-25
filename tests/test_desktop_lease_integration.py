@@ -106,7 +106,7 @@ class LeaseBoundaryTests(unittest.TestCase):
         self.assertIsNone(locks.current_desktop_session_token())
         self.assertEqual(report['desktop_control_lease'],{'status':'acquired','scope':'per-user desktop','released':True})
         self.assertEqual(report['policy'],'amplifier-standard-tool-loop-v6.5')
-        self.assertEqual(report['tool_interface'],'tools-v6.9')
+        self.assertEqual(report['tool_interface'],'tools-v6.20')
         self.assertEqual(checks,['provider init','desktop init','execute','desktop close','provider close'])
         return report
 

@@ -218,6 +218,29 @@ class ExplorationTests(unittest.TestCase):
         self.assertNotIn('exploration_feedback', last)
         self.assertFalse(self.fixture.desktop.executions)
 
+    def test_region_as_cursor_has_read_only_recovery_without_window_activation(self):
+        overview = self.call('inspect', snapshot_id=self.sid, operation='overview')
+        region = next(row['region_id'] for row in overview['items'] if row.get('kind') == 'region')
+        before = deepcopy(self.fixture.desktop.calls)
+        args = dict(snapshot_id=self.sid, operation='overview', cursor=region, limit=10)
+        for _ in range(2):
+            refused = self.call('inspect', **args)
+            self.assertEqual(refused['status'], 'refused')
+            self.assertIn("operation='list'", refused['reason'])
+        feedback = refused['exploration_feedback']
+        self.assertEqual(feedback['failure_stage'], 'retained_inspection')
+        self.assertFalse(feedback['action_authority'])
+        from locua.amplifier_session import _tool_progress
+        printed = _tool_progress({'tool_name':'locua_inspect', 'result':{'success':False,'output':refused}})
+        self.assertTrue(any('correct the operation' in line for line in printed))
+        incompatible = self.call('inspect', **args, region_id=region)
+        self.assertFalse(incompatible['arguments_rewritten'])
+        self.assertIn("region_id requires operation='list'", incompatible['reason'])
+        recovered = self.call('inspect', snapshot_id=self.sid, operation='list', region_id=region, limit=10)
+        self.assertEqual(recovered['status'], 'ok')
+        self.assertEqual(self.fixture.desktop.calls, before)
+        self.assertFalse(self.fixture.desktop.executions)
+
 
 if __name__ == '__main__':
     unittest.main()

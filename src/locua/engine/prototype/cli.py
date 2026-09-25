@@ -155,13 +155,16 @@ def prepare_owned_browser(owner, session, url, cancel, state):
         trace = getattr(owner, "trace", None)
         if callable(trace):
             trace({"type": "browser_window_discovery", **evidence})
-        if len(candidates) > 1:
-            raise RuntimeError("Multiple plausible visible owned windows are ambiguous; no first-match binding")
-        if candidates:
+        # Chromium may briefly expose a startup surface beside its page window.
+        # Wait within the same bounded read-only discovery budget; never choose
+        # among competitors using titles, size ordering, or the intended URL.
+        if len(candidates) == 1:
             window = candidates[0]
             break
         cancel.wait(.3)
     if window is None:
+        if len(candidates) > 1:
+            raise RuntimeError("Multiple plausible visible owned windows remain ambiguous after startup; no first-match binding")
         raise RuntimeError("Unique driver-owned blank window unavailable")
     # Only the initial read-only bind can retry explicit endpoint-not-ready.
     # Every attempt re-runs driver attestation for the identical prepared owner;
@@ -347,5 +350,4 @@ def parser():
     p.add_argument("--max-steps", type=int, default=8)
     p.add_argument("--max-seconds", type=float, default=180)
     return p
-
 

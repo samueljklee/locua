@@ -35,10 +35,37 @@ class ParityChecks(unittest.TestCase):
         changed[2]['generation_metrics']['reused_input_tokens']=0
         self.assertFalse(probe.compare(rows,changed)[2]['passed'])
 
+    def test_native_suffix_basis_and_requested_numbers_are_explicit(self):
+        rows=self.records()
+        for number,row in enumerate(rows,1):
+            row['source_call']=number
+            row['generation_metrics']['checkpoint_boundary_basis']='before_native_generation_suffix_aligned_2048'
+        compared=probe.compare(rows,deepcopy(rows),numbers=(1,2,3),
+            boundary_basis='before_native_generation_suffix_aligned_2048')
+        self.assertTrue(all(row['passed'] for row in compared))
+        changed=deepcopy(rows);changed[1]['generation_metrics']['reused_input_tokens']=0
+        self.assertFalse(probe.compare(rows,changed,numbers=(1,2,3),
+            boundary_basis='before_native_generation_suffix_aligned_2048')[1]['passed'])
+        self.assertFalse(probe.compare(rows,rows,numbers=(1,2,3))[0]['passed'])
+
     def test_missing_duplicate_or_reordered_attempts_refused(self):
         rows=self.records()
         for bad in (rows[:2],list(reversed(rows)),[rows[0],rows[0],rows[2]]):
             with self.assertRaises(ValueError):probe.compare(rows,bad)
+
+    def test_mixed_wrapper_and_suffix_bases_are_frozen_per_call(self):
+        rows=self.records();numbers=(8,9,10)
+        bases=['before_native_empty_thinking_wrapper_aligned_2048']*2+['before_native_generation_suffix_aligned_2048']
+        for row,number,basis in zip(rows,numbers,bases,strict=True):
+            row['source_call']=number;row['generation_metrics']['checkpoint_boundary_basis']=basis
+        self.assertTrue(all(r['passed'] for r in probe.compare(rows,deepcopy(rows),numbers=numbers,boundary_bases=bases)))
+        changed=deepcopy(rows)
+        changed[1]['generation_metrics']['checkpoint_boundary_basis']=bases[2]
+        self.assertFalse(probe.compare(rows,changed,numbers=numbers,boundary_bases=bases)[1]['passed'])
+        changed=deepcopy(rows);changed[2]['generation_metrics']['reused_input_tokens']=0
+        self.assertFalse(probe.compare(rows,changed,numbers=numbers,boundary_bases=bases)[2]['passed'])
+        for invalid in (bases[:2],bases+['bad'],['bad']*3):
+            with self.assertRaises(ValueError):probe.compare(rows,rows,numbers=numbers,boundary_bases=invalid)
 
     def test_source_and_exact_input_bytes_are_frozen(self):
         with tempfile.TemporaryDirectory() as d:

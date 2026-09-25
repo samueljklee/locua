@@ -168,6 +168,15 @@ class ActionProgressTests(unittest.TestCase):
         self.assertEqual(data, original)
         return '\n'.join(lines)
 
+    def test_reviewed_progress_does_not_claim_whole_task_or_echo_plan_prose(self):
+        text = self.progress({'status': 'verified', 'plan_progress': {
+            'items': [{'status': 'completed'}, {'status': 'current', 'description': 'PRIVATE_PLAN'}]}},
+            name='locua_verify')
+        self.assertIn('1/2 scopes verified', text)
+        self.assertIn('final task verification remains separate', text)
+        self.assertNotIn('PRIVATE_PLAN', text)
+        self.assertNotIn('task completed', text)
+
     def test_sequence_progress_reports_partial_issuance_and_separate_verification(self):
         text=self.progress({'status':'refused','steps_completed':3,'steps_planned':8,
             'action_started':True,'reason':'Observed navigation changed the layout'},name='locua_act_sequence')

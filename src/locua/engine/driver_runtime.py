@@ -265,7 +265,7 @@ class Runtime:
         _run(['/usr/bin/open', '-g', '-a', self.app,
               '--stdout', diagnostics['diagnostic_paths']['stdout'],
               '--stderr', diagnostics['diagnostic_paths']['stderr'],
-              '--args', 'serve', '--socket', self.socket, '--permission-mode', 'standard', '--no-overlay'], timeout=10)
+              '--args', 'serve', '--socket', self.socket, '--permission-mode', 'standard'], timeout=10)
         deadline = time.monotonic() + 12
         last_error = None
         while time.monotonic() < deadline:

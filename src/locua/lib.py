@@ -23,7 +23,7 @@ CAPABILITIES = {
     "eval": ("model-backed", "Evaluate recorded decisions or supplied simulations with local models."),
 }
 SUCCESS = {"complete", "verified_reviewed_scope", "proposed", "observed", "evaluated", "ready", "diagnostic", "configured", "plan_ready_for_review"}
-RESOURCES = ["SMART_TOOL.md", "docs/installation.md", "docs/usage.md", "lib.py", "config.py"]
+RESOURCES = ["SMART_TOOL.md", "docs/installation.md", "docs/usage.md", "docs/profiles.md", "docs/gaps.md", "lib.py", "config.py"]
 
 
 def skill_directory():
@@ -51,17 +51,17 @@ def describe():
 def short_help(capability=None):
     if capability is None:
         return "locua \"describe the outcome\" [options]\nlocua do [REQUEST] [options]\nlocua <capability> [options]\n\n" + "\n".join(
-            f"  {name:<9} [{kind}] {description}" for name, (kind, description) in CAPABILITIES.items()) + "\n\nUse locua --help or locua <capability> --help for full guidance."
+            f"  {name:<9} [{kind}] {description}" for name, (kind, description) in CAPABILITIES.items()) + "\n\nNative preview default: local qwen38 (27B), step-v2 tools, continuity-v1 instructions; ordinary tool calling, no RLCD.\nUse locua --help or locua <capability> --help for full guidance."
     if capability == "start":
         return ("locua start [REQUEST] [--url URL | --document FILE] [options]\n"
                 "Describe an outcome, review its interpretation, then type run.\n"
                 "Use --manual for optional observed-field selection.\n\n"
                 "  --config FILE   Use an existing runtime configuration\n"
                 "  --provider NAME local (default), openai, or anthropic; no fallback\n"
-                "  --model ID      Local comparator (language default), baseline, qwen38; hosted ID must be explicit\n"
+                "  --model ID      Native local default: qwen38 (27B); comparator (7B), baseline (1.5B); hosted ID explicit\n"
                 "  --thinking      Explicit bounded local qwen38 thinking experiment\n"
-                "  --tool-profile baseline|fresh-region-v1|execution-state-v1  Explicit response-view experiment\n"
-                "  --instruction-profile baseline|concise-v1|concise-examples-v1|concise-help-v1  Explicit prompt experiment\n"
+                "  --tool-profile NAME  Native local default: step-v2; see --help for overrides\n"
+                "  --instruction-profile NAME  Native local default: continuity-v1; older profiles available\n"
                 "  --budget-ledger PATH  Shared hosted API spend cap\n"
                 "  --budget-cap-usd N  Ledger cap, at most 15; existing ledger must match\n"
                 "  --json          Print machine-readable results\n\n"
@@ -70,12 +70,12 @@ def short_help(capability=None):
     if capability == "do":
         return ('locua do [REQUEST] [--url URL | --document FILE] [options]\n'
                 'Describe the outcome, answer real ambiguities, review the plan, then type run.\n'
-                'Preview default: local 7B comparator; Amplifier ordinary tool calling.\n'
+                'Preview default: local qwen38 (27B), step-v2 tools, continuity-v1 instructions; no RLCD.\n'
                 '  --provider local|openai|anthropic (local default; no fallback)\n'
                 '  --model ID (local baseline|comparator|qwen38; explicit hosted ID required)\n'
                 '  --thinking (explicit local qwen38 bounded-thinking experiment)\n'
-                '  --tool-profile baseline|fresh-region-v1|execution-state-v1 (explicit response-view experiment)\n'
-                '  --instruction-profile baseline|concise-v1|concise-examples-v1|concise-help-v1 (explicit prompt experiment)\n'
+                '  --tool-profile NAME (native local default: step-v2; older profiles available)\n'
+                '  --instruction-profile NAME (native local default: continuity-v1; older profiles available)\n'
                 '  --budget-ledger PATH (shared hosted API spend cap)\n'
                 '  --budget-cap-usd N (ledger cap <= 15; never resets spending)\n'
                 '  --harness amplifier|legacy (native tasks only)\n'
@@ -242,21 +242,17 @@ def run(*, task=None, request=None, scope=None, supplied_data=None, model="basel
                     "out": str(out) if out else None}, config, progress)
 
 
-def start(*, url=None, document=None, request=None, model=None, manual=False, harness="amplifier", provider="local", thinking=False, budget_ledger=None, budget_cap_usd=15, task_observations=False, tool_profile="baseline", instruction_profile="baseline", browser_click_route="trusted", native_save_route="menu", inspection_policy="reviewed_target_first", out=None,
+def start(*, url=None, document=None, request=None, model=None, manual=False, harness="amplifier", provider="local", thinking=False, budget_ledger=None, budget_cap_usd=15, task_observations=False, tool_profile=None, instruction_profile=None, browser_click_route="trusted", native_save_route="menu", inspection_policy="reviewed_target_first", out=None,
           config=None, ask=None, progress=None):
-    """Guided task entry; clients supply ask(prompt)->answer and progress callbacks.
-
-    Explicit reviewed choices replace internal-schema authoring. This capability
-    does not claim automatic natural-language interpretation.
-    """
+    """Language entry, or optional manual field picker; both require review."""
     if not manual:
-        return do(request=request, url=url, document=document, model=model or ('comparator' if provider=='local' else None),
+        return do(request=request, url=url, document=document, model=model,
                   harness=harness, provider=provider, thinking=thinking, budget_ledger=budget_ledger, task_observations=task_observations, tool_profile=tool_profile,
                   instruction_profile=instruction_profile,
                   budget_cap_usd=budget_cap_usd,
                   browser_click_route=browser_click_route, native_save_route=native_save_route,
                   inspection_policy=inspection_policy, out=out, config=config, ask=ask, progress=progress)
-    if provider!='local' or thinking or budget_ledger is not None or budget_cap_usd!=15 or task_observations or tool_profile!='baseline' or instruction_profile!='baseline':
+    if provider!='local' or thinking or budget_ledger is not None or budget_cap_usd!=15 or task_observations or tool_profile not in (None,'baseline') or instruction_profile not in (None,'baseline'):
         raise LocuaError('invalid_run_option','Provider/thinking options apply only to the Amplifier language loop.','Omit --manual.',exit_code=2)
     if request is not None:
         raise LocuaError('bad_invocation', 'Manual mode takes field choices, not a language request.', 'Omit manual mode to interpret your request.', exit_code=2)
@@ -271,10 +267,15 @@ def start(*, url=None, document=None, request=None, model=None, manual=False, ha
         progress=progress or (lambda message: None)))
 
 
-def do(request=None, *, url=None, document=None, model="comparator", browser_click_route="trusted",
-       native_save_route="menu", inspection_policy="reviewed_target_first", harness="amplifier", provider="local", thinking=False, budget_ledger=None, budget_cap_usd=15, task_observations=False, tool_profile="baseline", instruction_profile="baseline", out=None,
+def do(request=None, *, url=None, document=None, model=None, browser_click_route="trusted",
+       native_save_route="menu", inspection_policy="reviewed_target_first", harness="amplifier", provider="local", thinking=False, budget_ledger=None, budget_cap_usd=15, task_observations=False, tool_profile=None, instruction_profile=None, out=None,
        config=None, ask=None, progress=None):
     """Reviewed language workflow; no user-authored internal schema required."""
+    from .preview_defaults import resolve
+    model, tool_profile, instruction_profile = resolve(
+        model=model, tool_profile=tool_profile, instruction_profile=instruction_profile,
+        provider=provider, harness=harness, url=url, document=document,
+        task_observations=task_observations)
     if not callable(ask) or (url is not None and document is not None):
         raise LocuaError("review_interaction_required", "Provide an interaction callback and at most one explicit target.",
                          "Run locua do in a terminal; review is required before task edits.", exit_code=2)
@@ -287,14 +288,20 @@ def do(request=None, *, url=None, document=None, model="comparator", browser_cli
             raise LocuaError('invalid_run_option','Hosted providers use the Amplifier native language path and their declared reasoning configuration.','Omit --thinking, --url, --document and --harness legacy.',exit_code=2)
     if type(task_observations) is not bool or (task_observations and (harness!='amplifier' or url is not None or document is not None)):
         raise LocuaError('invalid_run_option','Task observations apply only to the native Amplifier loop.','Use native language mode.',exit_code=2)
-    if tool_profile not in ('baseline','fresh-region-v1','execution-state-v1') or (tool_profile!='baseline' and (harness!='amplifier' or url is not None or document is not None)):
+    if tool_profile not in ('baseline','fresh-region-v1','execution-state-v1','continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') or (tool_profile!='baseline' and (harness!='amplifier' or url is not None or document is not None)):
         raise LocuaError('invalid_run_option','Tool profiles apply only to the native Amplifier loop.','Use --harness amplifier without --url or --document.',exit_code=2)
     from .instruction_policy import PROFILES
     if instruction_profile not in PROFILES or (instruction_profile!='baseline' and (harness!='amplifier' or url is not None or document is not None)):
         raise LocuaError('invalid_run_option','Instruction profiles apply only to the native Amplifier loop.','Use --harness amplifier without --url or --document.',exit_code=2)
-    if tool_profile=='execution-state-v1' and (provider!='local' or task_observations):
+    if tool_profile in ('execution-state-v1','continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') and (provider!='local' or task_observations):
         raise LocuaError('invalid_run_option','Execution state profile currently requires unscoped local observations.',
                          'Use --provider local without --task-observations, or select --tool-profile baseline.',exit_code=2)
+    if tool_profile in ('step-v1','step-v2') and instruction_profile not in ('baseline','continuity-v1'):
+        raise LocuaError('invalid_run_option',f'{tool_profile} requires baseline or continuity-v1 instructions.',
+                         f'Use --tool-profile {tool_profile} --instruction-profile continuity-v1.',exit_code=2)
+    if instruction_profile=='continuity-arguments-v1' and tool_profile not in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'):
+        raise LocuaError('invalid_run_option','The argument instruction experiment uses the compact continuity tools.',
+                         'Add --tool-profile continuity-v1, semantic-v1 or semantic-v2.',exit_code=2)
     if thinking and (provider!='local' or model!='qwen38' or harness!='amplifier' or url is not None or document is not None):
         raise LocuaError('invalid_run_option','Bounded thinking is an explicit local qwen38 Amplifier experiment.','Use --provider local --model qwen38 --thinking.',exit_code=2)
     if budget_ledger is not None and provider=='local':
@@ -306,7 +313,7 @@ def do(request=None, *, url=None, document=None, model="comparator", browser_cli
             or native_save_route not in ("menu", "textedit_shortcut")):
         raise LocuaError("invalid_run_option", "Unknown model, route or inspection policy.", "Run locua do --help.", exit_code=2)
     if model=='qwen38' and (harness!='amplifier' or url is not None or document is not None):
-        raise LocuaError('invalid_run_option','qwen38 is an explicit experimental Amplifier native tool model; it has no RLCD or legacy adapter.','Use native language mode with --harness amplifier --model qwen38.',exit_code=2)
+        raise LocuaError('invalid_run_option','qwen38 is an Amplifier native tool model; it has no RLCD or legacy adapter.','Use native language mode with --harness amplifier --model qwen38.',exit_code=2)
     # Explicit URL/document callers retain the v8 reviewed adapter entry. The
     # ordinary desktop path starts from the complete goal, not an open window.
     if url is None and document is None and harness == "amplifier":

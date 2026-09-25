@@ -72,7 +72,10 @@ def _tool_progress(data):
             lines.append(f'Rejected step {failed_step}: {control} ({kind}).'+
                 (' No sequence input was attempted.' if output.get('steps_attempted')==0 else ''))
         if output.get('exploration_feedback', {}).get('code') == 'repeated_failed_read':
-            lines.append('Repeated read failure: no fresh UI state. Use supported recovery or report the concrete blocker; repeating the same read is not progress.')
+            if output['exploration_feedback'].get('failure_stage') == 'retained_inspection':
+                lines.append('Repeated inspection failure: correct the operation, arguments or retained reference. This does not establish window unavailability.')
+            else:
+                lines.append('Repeated read failure: no fresh UI state. Use supported recovery or report the concrete blocker; repeating the same read is not progress.')
         if output.get('no_retry') is True:
             lines.append('Input may already have occurred; repeating it is disabled.')
             recovery = output.get('reconciliation')
@@ -137,12 +140,58 @@ def _tool_progress(data):
         count = feedback.get('equivalent_inspection_count')
         repeats = ' (' + str(count) + ' times)' if type(count) is int and count > 1 else ''
         lines.append('Repeated inspection' + repeats + ': no new UI evidence; use a continuation, another scope or control detail, or report the missing evidence.')
+    plan = output.get('plan_progress')
+    if isinstance(plan, dict) and isinstance(plan.get('items'), list) and plan['items']:
+        completed = sum(row.get('status') == 'completed' for row in plan['items'] if isinstance(row, dict))
+        lines.append(f"Reviewed plan: {completed}/{len(plan['items'])} scopes verified at the latest retained capture; final task verification remains separate.")
     return lines
+
+
+VERIFIED_COMPLETION_POLICY = 'explicit-verify-fresh-reviewed-scope-v1'
+
+
+def verified_completion_checker(owner):
+    """Trusted opt-in completion evidence, never a model/UI stop instruction.
+
+    The caller still performs its final independent refresh. Uncertain delivery,
+    partial coverage and unresolved scopes retain the ordinary model continuation.
+    """
+    def check():
+        with owner._lock:
+            if owner.tool_profile not in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') or owner._cancellation is not None:
+                return None
+            events = owner.evidence.get('events', [])
+            if not events or events[-1].get('tool') != 'locua_verify':
+                return None
+            last = events[-1].get('result', {})
+            if last.get('status') != 'verified' or last.get('fresh_refresh') is not True:
+                return None
+            scopes = owner._scopes
+            if not scopes or any(scope.get('status') != 'approved'
+                    or scope.get('unresolved_requirements') or scope.get('uncertain_action')
+                    for scope in scopes.values()):
+                return None
+            if not any(scope.get('covers_entire_request') is True and scope.get('goals')
+                       for scope in scopes.values()):
+                return None
+            # Independently recapture after the explicit verification receipt.
+            # Positive projected output, retained state and prior receipts are
+            # insufficient to avoid the next model call.
+            proof = owner.finalize()
+            if (proof.get('status') != 'verified_reviewed_scope'
+                    or proof.get('all_reviewed_goals_verified') is not True
+                    or proof.get('verification', {}).get('status') != 'verified'
+                    or proof.get('verification', {}).get('fresh_refresh') is not True
+                    or proof.get('request_coverage', {}).get('user_reviewed_complete_declaration') is not True):
+                return None
+            return deepcopy(proof)
+    return check
 
 
 async def execute_session(request, provider, tools, *, out, progress=None,
                           system=SYSTEM, max_iterations=48, execution_facts=None,
-                          owner_cancellation=None):
+                          owner_cancellation=None, verified_completion=None,
+                          execution_facts_mode='persist', focus_dedup=False):
     """Reusable actual Amplifier session; also used by the model-only smoke.
 
 The caller owns provider/tools and closes them. No custom orchestrator or module
@@ -155,8 +204,10 @@ resolver is mounted, and only the supplied local provider is available.
     config={'session':{
         'orchestrator':{'module':'loop-streaming','config':{'max_iterations':max_iterations}},
         'context':{'module':'context-simple','config':deepcopy(CONTEXT_CONFIG)}}}
+    if execution_facts_mode not in ('persist','tail'):
+        raise ValueError('execution_facts_mode must be persist or tail')
     if execution_facts is not None:
-        config['session']['orchestrator']['config']['ephemeral_injection_mode']='persist'
+        config['session']['orchestrator']['config']['ephemeral_injection_mode']=execution_facts_mode
     session=AmplifierSession(config)
     trace=[];turns=0
     async def event(event,data):
@@ -170,14 +221,42 @@ resolver is mounted, and only the supplied local provider is available.
             # the exact framework serialization before using the typed object.
             provider.register_structured_tool_result(data.get('tool_call_id'),data.get('result'))
         if event=='tool:post' and owner_cancellation is not None:
-            # Only the canonical owner's human-review latch can end this run.
+            # Only the canonical owner's trusted stop latch can end this run;
+            # model-visible result text alone cannot request cancellation.
             # UI text, model arguments and projected tool results are not signals.
             cancellation=owner_cancellation()
-            if (isinstance(cancellation,dict) and cancellation.get('status')=='canceled'
-                    and cancellation.get('reason')=='user_declined_review'
-                    and cancellation.get('authority_revoked') is True):
+            if (isinstance(cancellation,dict) and cancellation.get('authority_revoked') is True
+                    and ((cancellation.get('status')=='canceled' and cancellation.get('reason')=='user_declined_review')
+                         or (cancellation.get('execution_stopped') is True and
+                             (cancellation.get('reason')=='nonprogress_limit'
+                              or cancellation.get('code')=='interface_result_unavailable'
+                              or (cancellation.get('code')=='text_persistence_unmet'
+                                  and cancellation.get('stop_reason')=='unsupported_text_persistence'))))):
                 result['cancellation']=deepcopy(cancellation)
                 coordinator.cancellation.request_graceful()
+        if (event=='tool:post' and verified_completion is not None and 'cancellation' not in result
+                and data.get('tool_name', data.get('name'))=='locua_verify'):
+            envelope=data.get('result')
+            if hasattr(envelope,'model_dump'):envelope=envelope.model_dump()
+            output=envelope.get('output') if isinstance(envelope,dict) else None
+            # Amplifier can run sibling tool calls concurrently. Only a sole
+            # explicit verification may stop here; otherwise a sibling could
+            # change state after this proof and before the batch finishes.
+            history=await context.get_messages()
+            assistant=next((m for m in reversed(history) if m.get('role')=='assistant'),{})
+            calls=assistant.get('tool_calls') or []
+            sole_verify=(len(calls)==1 and calls[0].get('id')==data.get('tool_call_id')
+                         and calls[0].get('tool',calls[0].get('name'))=='locua_verify')
+            if (sole_verify and isinstance(envelope,dict) and envelope.get('success') is True
+                    and isinstance(output,dict) and output.get('status')=='verified'):
+                proof=verified_completion()
+                if hasattr(proof,'__await__'):proof=await proof
+                if isinstance(proof,dict) and proof.get('status')=='verified_reviewed_scope':
+                    result['verified_completion']={'policy':VERIFIED_COMPLETION_POLICY,
+                        'reason':'verified_reviewed_completion','trigger_tool_call_id':data.get('tool_call_id'),
+                        'proof':deepcopy(proof),'framework_stop':'standard_graceful_stop',
+                        'caller_final_refresh_required':True}
+                    coordinator.cancellation.request_graceful()
         if event=='provider:request':
             turns+=1;progress(f'[{turns}] '+('Local' if getattr(provider,'local_only',True) else 'Hosted')+' model choosing a tool or response…')
         elif event=='tool:pre':
@@ -185,6 +264,7 @@ resolver is mounted, and only the supplied local provider is available.
             labels={'locua_apps':'Finding applications','locua_windows':'Finding application windows',
                 'locua_launch':'Opening or reopening the selected application','locua_activate':'Activating the selected window',
                 'locua_observe':'Reading the selected window','locua_inspect':'Inspecting UI controls',
+                'locua_search':'Searching the selected UI region',
                 'locua_review':'Preparing the plan for review','locua_act':'Applying a reviewed action',
                 'locua_act_sequence':'Applying a model-selected reviewed sequence',
                 'locua_verify':'Checking the outcome','locua_clarify':'Clarifying missing information',
@@ -192,14 +272,20 @@ resolver is mounted, and only the supplied local provider is available.
             progress(labels.get(name,'Tool: '+name)+'…')
         elif event=='tool:post':
             for line in _tool_progress(data):progress(line)
+            if result.get('verified_completion',{}).get('trigger_tool_call_id')==data.get('tool_call_id'):
+                progress('Reviewed outcomes freshly verified; ending the model loop before final independent checks.')
         elif event=='context:compaction':
             progress('Older context compacted; original request and retained task state remain available.')
+        elif event=='context:focus_dedup' and data.get('stage')=='selected' and data.get('deduplicated') is True:
+            progress('Context: '+str(data['rows'])+' focused controls retained once; '+
+                     str(data['removed_reminder_bytes'])+' duplicate reminder bytes removed.')
         if event=='provider:request' and execution_facts is not None:
             return HookResult(action='inject_context',ephemeral=True,context_injection_role='user',
                               context_injection=execution_facts())
         return HookResult(action='continue')
     result={'framework':'AmplifierSession / loop-streaming / context-simple',
             'config':config,'request':request,'events':trace,
+            'verified_completion_policy':VERIFIED_COMPLETION_POLICY if verified_completion is not None else None,
             'decoding':'ordinary tool calling; RLCD not invoked','provider':provider.name,'inference_local_only':getattr(provider,'local_only',True),
             'dependencies':{name:importlib.metadata.version(name) for name in
                 ('amplifier-core','amplifier-module-loop-streaming','amplifier-module-context-simple')}}
@@ -211,11 +297,24 @@ resolver is mounted, and only the supplied local provider is available.
         else:
             await coordinator.mount('providers',provider,name=provider.name)
         for tool in tools:await coordinator.mount('tools',tool,name=tool.name)
-        for name in ('provider:request','llm:response','tool:pre','tool:post','tool:error','orchestrator:complete','context:compaction','cancel:requested','cancel:completed'):
+        for name in ('provider:request','llm:response','tool:pre','tool:post','tool:error','orchestrator:complete','context:compaction','context:focus_dedup','cancel:requested','cancel:completed'):
             coordinator.hooks.register(name,event,name='locua-trace-'+name,priority=100)
+        if focus_dedup:
+            if execution_facts is not None and execution_facts_mode=='tail':
+                from .focus_context import MeasuredFocusAdapter
+                result['focus_dedup_enabled']=await MeasuredFocusAdapter().mount(coordinator)
+            else:
+                result['focus_dedup_enabled']=False
+                await coordinator.hooks.emit('context:focus_dedup',{'stage':'mount','deduplicated':False,
+                    'reason':'tail_execution_facts_required'})
         context=coordinator.get('context')
         await context.add_message({'role':'system','content':system+'\nORIGINAL USER REQUEST (retain throughout):\n'+request})
         result['response']=await asyncio.wait_for(session.execute(request),timeout=600)
+        if 'verified_completion' in result:
+            result['framework_response']=result['response']
+            result['response']='Reviewed outcomes match fresh application evidence; final caller verification follows.'
+            result['response_source']='verified_reviewed_completion'
+            result['stop_reason']='verified_reviewed_completion'
         result['transcript']=await context.get_messages()
         return result
     finally:
@@ -240,20 +339,27 @@ def run(request=None, *, model='comparator', provider='local', thinking=False, b
     from .engine_adapter import artifact_directory, require
     from .engine.prototype.cli import private_json
     from .instruction_policy import instruction_policy, metadata, apply_tool_help
+    from .engine.prototype.qwen38_runtime import VOLATILE_SUFFIX_POLICY
     selected_system = instruction_policy(instruction_profile)
+    if tool_profile in ('step-v1','step-v2') and instruction_profile not in ('baseline','continuity-v1'):
+        raise ValueError(f'{tool_profile} requires baseline or continuity-v1 instructions')
+    if instruction_profile == 'continuity-arguments-v1' and tool_profile not in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'):
+        raise ValueError('continuity-arguments-v1 instructions require --tool-profile continuity-v1, semantic-v1 or semantic-v2')
     root=artifact_directory(out,'do');started=time.monotonic();provider_name=provider
     hosted=provider_name!='local'
-    if tool_profile=='execution-state-v1' and (hosted or task_observations):
+    if tool_profile in ('execution-state-v1','continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') and (hosted or task_observations):
         raise LocuaError('invalid_run_option','Retained-state profile currently requires unscoped local observations.',
                          'Use --provider local without --task-observations, or select --tool-profile baseline.')
     scoped=hosted or task_observations
     report={'status':'starting','request':request,'artifacts':str(root),
-        'harness':'amplifier','policy':'amplifier-standard-tool-loop-v6.5','tool_interface':'tools-v6.9','provider_integration':'providers-v7.0','model':model,'provider':provider_name,'thinking':thinking,'task_scoped_observations':scoped,
+        'harness':'amplifier','policy':'amplifier-standard-tool-loop-v6.5','tool_interface':('tools-v6.24/step-v2' if tool_profile=='step-v2' else 'tools-v6.22/step-v1' if tool_profile=='step-v1' else 'tools-v6.20/semantic-v2' if tool_profile=='semantic-v2' else 'tools-v6.20/semantic-v1' if tool_profile=='semantic-v1' else 'tools-v6.20/continuity-v1' if tool_profile=='continuity-v1' else 'tools-v6.20'),'provider_integration':'providers-v7.1','model':model,'provider':provider_name,'thinking':thinking,'task_scoped_observations':scoped,
         'inference_local_only':not hosted,'decoding':'ordinary '+('hosted' if hosted else 'local')+' tool calling',
         'rlcd_used':False,'human_interactions':[],'human_wait_s':0.0,'tool_profile':tool_profile,
         'instructions':metadata(instruction_profile),
-        'prefix_cache_policy':'exact_chunk_aligned_prefix_before_compaction_notice_v2' if model=='qwen38' and not thinking and not hosted else 'off',
-        'natural_language_autonomy_proven':False,'saved_output_proven':False}
+        'prefix_cache_policy':VOLATILE_SUFFIX_POLICY if model=='qwen38' and not thinking and not hosted else 'off',
+        'verified_completion_policy':VERIFIED_COMPLETION_POLICY if tool_profile in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') else 'off',
+        'natural_language_autonomy_proven':False,'saved_output_proven':False,
+        'persistence_contract':'text-persistence-v1'}
     def question(prompt,purpose='user_input'):
         tick=time.monotonic()
         try:
@@ -274,13 +380,15 @@ def run(request=None, *, model='comparator', provider='local', thinking=False, b
             provider=HostedAmplifierProvider(provider_name,model,out=root/'provider',budget_path=budget_ledger,spend_cap_usd=budget_cap_usd)
         else:
             local_options=({'qwen38_thinking':True} if thinking else {})
+            if tool_profile in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'):local_options['protocol_recovery']=True
             provider=LocalAmplifierProvider(model=model,runtime_config=cfg,out=root/'provider',
                 qwen38_prompt_cache=(model=='qwen38' and not thinking),
                 qwen38_stable_prefix_cache=(model=='qwen38' and not thinking),**local_options)
         desktop=None
         try:
-            desktop=DesktopToolset(cfg,root/'desktop',request,question,progress=progress,tool_profile=tool_profile)
-            if tool_profile!='baseline':progress('Explicit experimental tool profile: '+tool_profile+'. Model and decoding unchanged.')
+            desktop=DesktopToolset(cfg,root/'desktop',request,question,progress=progress,tool_profile=tool_profile,
+                persistence_contract='text-persistence-v1')
+            progress('Tool profile: '+tool_profile+' · Instructions: '+instruction_profile+' · Preview; review the complete request before input.')
             tools=desktop.tools()
             if scoped:
                 from .task_observation_scope import scoped_tools_for_request
@@ -288,19 +396,26 @@ def run(request=None, *, model='comparator', provider='local', thinking=False, b
                 report['observation_scope']=scope_info
                 progress('Task-scoped observations: '+scope_info['description']+'. Other desktop content stays local.')
             tools=apply_tool_help(tools,instruction_profile)
-            if instruction_profile!='baseline':
-                progress('Explicit instruction experiment: '+instruction_profile+'. Action guards, observations, model and decoding unchanged.')
             execution_facts=None
             if tool_profile=='execution-state-v1':
                 from .execution_state import render_execution_facts
                 def execution_facts():
                     with desktop._lock:return render_execution_facts(desktop)
+            elif tool_profile in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2'):
+                def execution_facts():
+                    with desktop._lock:return desktop.model_interface.state_text()
             def owner_cancellation():
                 with desktop._lock:return deepcopy(desktop._cancellation)
             result=await execute_session(request,provider,tools,out=root/'session',progress=progress,
-                                         system=selected_system,execution_facts=execution_facts,owner_cancellation=owner_cancellation)
+                                         system=selected_system,execution_facts=execution_facts,owner_cancellation=owner_cancellation,
+                                         execution_facts_mode='tail' if tool_profile in ('step-v1','step-v2') else 'persist',
+                                         focus_dedup=tool_profile in ('step-v1','step-v2'),
+                                         verified_completion=verified_completion_checker(desktop) if tool_profile in ('continuity-v1','semantic-v1','semantic-v2','step-v1','step-v2') else None)
             report['assistant_response']=result['response']
             report['session_cleanup']=result['session_cleanup']
+            if result.get('verified_completion'):
+                report['verified_completion']=deepcopy(result['verified_completion'])
+                report['model_loop_stop_reason']='verified_reviewed_completion'
             proof=desktop.finalize()
             if hasattr(proof,'__await__'):proof=await proof
             report['verification']=proof
@@ -309,6 +424,8 @@ def run(request=None, *, model='comparator', provider='local', thinking=False, b
                 if report['status']=='verified_reviewed_scope' else 'No verified coverage of the complete request')
             if report['status']=='verified_reviewed_scope':
                 progress('VERIFIED: reviewed outcomes match fresh application evidence. Full request coverage was checked at review.')
+                if proof.get('persistence',{}).get('requirements'):
+                    progress('Editor buffer verified. Saved-file bytes were not checked; the app may save changes automatically.')
                 for scope in proof.get('verification',{}).get('scopes',{}).values():
                     for row in scope.get('goals',[]):
                         evidence=row.get('evidence') or {}
@@ -364,7 +481,7 @@ def run(request=None, *, model='comparator', provider='local', thinking=False, b
         report['request']=request
         cfg=lib._config(config);require(cfg,('driver_binary','driver_socket') if hosted else ('runtime_python','model_cache','driver_binary','driver_socket'))
         _dependencies()
-        label=(provider_name+' '+model if hosted else {'comparator':'7B comparator','baseline':'1.5B baseline','qwen38':'Qwen3.8-27B experimental comparator'}[model])
+        label=(provider_name+' '+model if hosted else {'comparator':'7B comparator','baseline':'1.5B baseline','qwen38':'Qwen3.8-27B preview'}[model])
         if thinking:label+=' · bounded thinking (2048 total output tokens)'
         if hosted:
             from .provider_selection import validate_selection
@@ -374,7 +491,8 @@ def run(request=None, *, model='comparator', provider='local', thinking=False, b
         try:
             with acquire_desktop_session(purpose='Locua Amplifier desktop session') as lease:
                 report['desktop_control_lease']={'status':'acquired','scope':'per-user desktop','released':False}
-                progress(('HOSTED preview · ' if hosted else 'Local ')+label+' · Amplifier standard tool loop · tools-v6.9 / providers-v7.0 · ordinary tool calling. RLCD is not used in this run.')
+                progress(('HOSTED preview · ' if hosted else 'Local ')+label+
+                    f" · Amplifier standard tool loop · {report['tool_interface']} / {report['provider_integration']} · ordinary tool calling. RLCD is not used in this run.")
                 asyncio.run(execute(cfg))
         finally:
             if lease is not None:
