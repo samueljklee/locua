@@ -109,6 +109,9 @@ def parse_tool_output(raw,tools,finish_reason='stop'):
     Unlike that permissive parser, duplicate fields/unknown names, Python-literal
     fallback, invalid boolean coercion and incomplete suffixes are refused.
     No XML entities are decoded: the pinned template writes string values raw.
+    Required-field validation belongs to the tool boundary: an unambiguous call
+    with missing arguments must receive actionable tool feedback, not terminate
+    the agent loop. Missing values are never filled in here.
     """
     from ...amplifier_provider import MAX_BYTES,MAX_TOOL_CALLS
     if not isinstance(raw,str) or len(raw.encode())>MAX_BYTES:raise ValueError('Invalid Qwen3.8 output type/size')
@@ -151,7 +154,6 @@ def parse_tool_output(raw,tools,finish_reason='stop'):
             args[key]=_parameter(value,properties[key]);at=end+len('</parameter>')
         while at<len(raw) and raw[at].isspace():at+=1
         if not raw.startswith('</tool_call>',at):raise ValueError('Unclosed native XML function call')
-        if not set(schema.get('required',[]))<=set(args):raise ValueError('Required XML parameters missing')
         calls+=1
         if calls>MAX_TOOL_CALLS:raise ValueError('Too many native XML tool calls')
         blocks.append({'type':'tool_call','name':name,'arguments':args});pos=at+len('</tool_call>')
@@ -160,30 +162,44 @@ def parse_tool_output(raw,tools,finish_reason='stop'):
 
 
 CACHE_POLICY='exact_token_prefix_checkpoint_v1'
-VOLATILE_SUFFIX_POLICY='exact_chunk_aligned_prefix_before_compaction_notice_v2'
+VOLATILE_SUFFIX_POLICY='exact_chunk_aligned_prefix_before_volatile_native_suffix_v3'
 PREFILL_STEP_SIZE=2048
 # This identifies only a cache boundary. It does not classify instructions,
 # change message roles, or remove text; every token still reaches the model.
 COMPACTION_MARKER='<|im_start|>user\n<system-reminder source="context-compaction">'
+# The pinned nonthinking template appends this exact generation suffix. When
+# that turn is replayed with preserve_thinking=False, the empty thinking block
+# disappears. Saving state beyond it therefore defeats exact cross-turn reuse.
+# This marker only selects a checkpoint; it never changes the native prompt.
+NATIVE_GENERATION_SUFFIX='<|im_start|>assistant\n<think>\n\n</think>\n\n'
 
 
-def checkpoint_boundary(tokens, marker_tokens=None):
+def checkpoint_boundary(tokens, marker_tokens=None, *, generation_suffix_tokens=None):
     """Choose an exact saved prefix, leaving every remaining token for decode.
 
-    A pinned native user-message marker is optional. Absent/ambiguous matches
-    fall back to the original before-final-token checkpoint. UI text resembling
+    Optional exact markers identify a unique compaction notice or the terminal
+    native generation suffix. Use the earlier recognized boundary. Unrecognized
+    markers keep the original before-final-token checkpoint. UI text resembling
     a marker can only reduce reuse: it cannot alter or omit the model input.
     """
     if not isinstance(tokens,list) or not tokens or any(type(t)is not int for t in tokens):
         raise ValueError('Nonempty exact integer input tokens required')
-    fallback=len(tokens)-1
-    if marker_tokens is None:return fallback,'before_final_input_token'
-    if not isinstance(marker_tokens,list) or not marker_tokens or any(type(t)is not int for t in marker_tokens):
-        raise ValueError('Nonempty exact integer marker tokens required')
-    matches=[i for i in range(1,len(tokens)-len(marker_tokens)+1)
-             if tokens[i:i+len(marker_tokens)]==marker_tokens]
-    if len(matches)==1:return matches[0],'before_compaction_notice'
-    return fallback,'marker_absent' if not matches else 'marker_ambiguous'
+    boundary=len(tokens)-1;basis='before_final_input_token'
+    if marker_tokens is not None:
+        if not isinstance(marker_tokens,list) or not marker_tokens or any(type(t)is not int for t in marker_tokens):
+            raise ValueError('Nonempty exact integer marker tokens required')
+        matches=[i for i in range(1,len(tokens)-len(marker_tokens)+1)
+                 if tokens[i:i+len(marker_tokens)]==marker_tokens]
+        if len(matches)==1:boundary=matches[0];basis='before_compaction_notice'
+        else:basis='marker_absent' if not matches else 'marker_ambiguous'
+    if generation_suffix_tokens is not None:
+        if (not isinstance(generation_suffix_tokens,list) or not generation_suffix_tokens
+                or any(type(t)is not int for t in generation_suffix_tokens)):
+            raise ValueError('Nonempty exact integer generation suffix tokens required')
+        start=len(tokens)-len(generation_suffix_tokens)
+        if 0<=start<boundary and tokens[start:]==generation_suffix_tokens:
+            boundary=start;basis='before_native_generation_suffix'
+    return boundary,basis
 
 
 
@@ -305,12 +321,16 @@ class Qwen38Runtime:
         template=getattr(self.tokenizer,'chat_template',None)
         if not isinstance(template,str) or '<function=' not in template or 'enable_thinking' not in template:
             raise RuntimeError('Verified tokenizer lacks expected native XML/nonthinking template')
-        self.compaction_marker_tokens=None
+        self.compaction_marker_tokens=None;self.generation_suffix_tokens=None
         if volatile_suffix_checkpoint_enabled:
             marker=self.tokenizer.encode(COMPACTION_MARKER,add_special_tokens=False)
             if not isinstance(marker,list) or not marker or any(type(t)is not int for t in marker):
                 raise RuntimeError('Pinned tokenizer did not encode exact compaction marker')
             self.compaction_marker_tokens=marker
+            suffix=self.tokenizer.encode(NATIVE_GENERATION_SUFFIX,add_special_tokens=False)
+            if not isinstance(suffix,list) or not suffix or any(type(t)is not int for t in suffix):
+                raise RuntimeError('Pinned tokenizer did not encode exact native generation suffix')
+            self.generation_suffix_tokens=suffix
         self.metadata={'service':amplifier_provider.VERSION,'model_key':'qwen38','model_pin':pin,
             'backend':'mlx','decoder':self.decoding,'decoder_version':self.decoding,'logits_constraint':'none',
             'sampling':'greedy_argmax_temperature_0','enable_thinking':enable_thinking,'template_kwargs':deepcopy(self.template_kwargs),
@@ -318,7 +338,7 @@ class Qwen38Runtime:
             'offline_libraries':True,'installed_dependencies':versions,'resident_weights':True,'cross_turn_kv_cache':prompt_cache_enabled,
             'prompt_cache_policy':(VOLATILE_SUFFIX_POLICY if volatile_suffix_checkpoint_enabled else CACHE_POLICY) if prompt_cache_enabled else 'off',
             'volatile_suffix_checkpoint_enabled':volatile_suffix_checkpoint_enabled,
-            'prompt_cache_checkpoint':('snapshot at original2048-token prefill chunk boundary before unique compaction notice; transient prefix uses a clone and original final-token decoding'
+            'prompt_cache_checkpoint':('snapshot at original2048-token prefill chunk boundary before exact terminal native generation suffix or earlier unique compaction notice; transient prefix uses a clone and original final-token decoding'
                 if volatile_suffix_checkpoint_enabled else 'exact full-input prefix before final input token; generation receives a clone'),
             'memory_config':asdict(limits),'memory_limit_is_allocator_guideline_not_hard_rss_cap':True,
             'idle_cache_policy':'clear_after_load_and_generation','load_ms':round((time.perf_counter()-started)*1000,3),
@@ -367,15 +387,18 @@ class Qwen38Runtime:
                 tick=time.perf_counter()
                 boundary,basis=checkpoint_boundary(prompt_tokens,
                     getattr(self,'compaction_marker_tokens',None)
-                    if getattr(self,'volatile_suffix_checkpoint_enabled',False) else None)
-                if getattr(self,'volatile_suffix_checkpoint_enabled',False) and basis=='before_compaction_notice':
+                    if getattr(self,'volatile_suffix_checkpoint_enabled',False) else None,
+                    generation_suffix_tokens=(getattr(self,'generation_suffix_tokens',None)
+                        if getattr(self,'volatile_suffix_checkpoint_enabled',False) else None))
+                if (getattr(self,'volatile_suffix_checkpoint_enabled',False)
+                        and basis in ('before_compaction_notice','before_native_generation_suffix') and len(prompt_tokens)>2):
                     # Verify the installed public default; do not silently choose
                     # a different floating-point kernel partition after an upgrade.
                     import inspect
                     if inspect.signature(generate_step).parameters['prefill_step_size'].default!=PREFILL_STEP_SIZE:
                         raise RuntimeError('Installed MLX prefill chunk default changed')
                     boundary=(min(boundary,len(prompt_tokens)-3)//PREFILL_STEP_SIZE)*PREFILL_STEP_SIZE
-                    basis='before_compaction_notice_aligned_2048'
+                    basis+='_aligned_2048'
                     cache,reuse=self.checkpoint.prepare_aligned(prompt_tokens[:-1],boundary,
                         (*identity,'original_chunk_grid_2048'),make_cache=lambda:make_prompt_cache(self.model),
                         prefill=prefill,check_deadline=check_deadline)

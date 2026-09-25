@@ -108,6 +108,15 @@ class Exploration:
                 count = old.get('count', 0) + 1 if old.get('failure') == failure else 1
                 self.failed_reads[key] = {'failure': failure, 'count': count}
                 if count > 1:
+                    if name == 'locua_inspect':
+                        return {'code': 'repeated_failed_read', 'equivalent_failure_count': count,
+                            'failure_stage': 'retained_inspection', 'new_information': False,
+                            'current_state_proven': False, 'action_authority': False,
+                            'reason': 'The same retained-snapshot inspection failed again. Follow its argument/reference error: '
+                            'use list with region_id for a region; cursor is only the returned coverage.continuation '
+                            'for the same snapshot, operation and filters. Recover retained snapshot references with status. '
+                            'Do not infer window unavailability or missing controls from this error. '
+                            'If you cannot form a supported read, report that blocker rather than repeat it.'}
                     return {'code': 'repeated_failed_read', 'equivalent_failure_count': count,
                         'new_information': False, 'current_state_proven': False,
                         'action_authority': False, 'reason':

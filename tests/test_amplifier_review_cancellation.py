@@ -14,7 +14,7 @@ from locua import desktop_session_lock as locks
 
 
 class ReviewCancellationTests(unittest.TestCase):
-    def run_review(self, answer):
+    def run_review(self, answer, persistence='not_requested'):
         from amplifier_core.message_models import ChatResponse, TextBlock, ToolCall, ToolCallBlock
         owners=[];providers=[];lease_checks=[]
 
@@ -41,8 +41,9 @@ class ReviewCancellationTests(unittest.TestCase):
                     sid=owners[0].test_snapshot
                     args={'snapshot_id':sid,'summary':'Replace Entry only.',
                           'goals':[{'id':'entry','kind':'text','target':'Entry','control_id':sid+':1',
-                                    'value':'exact','evidence_plane':'editor_buffer'}],
+                                    'value':'exact','evidence_plane':'editor_buffer','persistence_requirement':persistence}],
                           'effects':[{'kind':'goal','goal_id':'entry'}],'covers_entire_request':True}
+                    if persistence is None: args['goals'][0].pop('persistence_requirement')
                     return ChatResponse(content=[ToolCallBlock(id='review-1',name='locua_review',input=args)],
                                         tool_calls=[ToolCall(id='review-1',name='locua_review',arguments=args)])
                 return ChatResponse(content=[TextBlock(text='No edit was made; the requested result is unverified.')])
@@ -103,6 +104,23 @@ class ReviewCancellationTests(unittest.TestCase):
         self.assertEqual(len(records),2)
         self.assertNotEqual(report['status'],'canceled')
         self.assertNotEqual(report['status'],'verified_reviewed_scope')
+        self.assertNotIn('cancellation',saved)
+        self.assertFalse(any(e['event'].startswith('cancel:') for e in saved['events']))
+
+    def test_unsupported_persistence_stops_real_loop_before_another_model_call(self):
+        report,saved,records=self.run_review('run',persistence='backing_file_unchanged')
+        self.assertEqual(report['status'],'blocked',report)
+        self.assertIn('cannot ensure the saved file stays unchanged',report['reason'])
+        self.assertEqual(len(records),1)
+        self.assertEqual(report['metrics']['model_calls'],1)
+        self.assertEqual(saved['cancellation']['code'],'text_persistence_unmet')
+        self.assertFalse(saved['cancellation']['task_complete'])
+        self.assertEqual(sum(e['event']=='provider:request' for e in saved['events']),1)
+        self.assertTrue(any(e['event']=='cancel:completed' for e in saved['events']))
+
+    def test_missing_persistence_declaration_remains_repairable(self):
+        report,saved,records=self.run_review('run',persistence=None)
+        self.assertEqual(len(records),2)
         self.assertNotIn('cancellation',saved)
         self.assertFalse(any(e['event'].startswith('cancel:') for e in saved['events']))
 

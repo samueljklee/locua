@@ -112,6 +112,8 @@ class AssertionTests(unittest.TestCase):
 
 
 class FrozenCasesTests(unittest.TestCase):
+    @unittest.skipUnless((ROOT / 'artifacts/action-sequence-v11-001').is_dir(),
+                         'Private retained replay evidence is not distributed')
     def test_actual_exposed_pair_preparation_preserves_originals_and_all_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             out=Path(tmp)/'freeze';manifest=replay.prepare(ROOT,out)
@@ -130,6 +132,8 @@ class FrozenCasesTests(unittest.TestCase):
             self.assertFalse(rubric['live2-call11']['scopes']['scope:1']['witness']['known_start'])
             self.assertTrue(all(c['original_native_archive_parity'] for c in manifest['cases']))
             self.assertEqual((out/'rubric-private.json').stat().st_mode&0o777,0o600)
+    @unittest.skipUnless((ROOT / 'artifacts/action-sequence-v11-001').is_dir(),
+                         'Private retained replay evidence is not distributed')
     def test_source_or_native_drift_refuses_before_provider_factory(self):
         async def exercise():
             with tempfile.TemporaryDirectory() as tmp:
@@ -147,6 +151,8 @@ class FrozenCasesTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'source identity'):
                     await replay.run_replays(frozen,Path(tmp)/'source',forbidden)
         asyncio.run(exercise())
+    @unittest.skipUnless((ROOT / 'artifacts/action-sequence-v11-001').is_dir(),
+                         'Private retained replay evidence is not distributed')
     def test_fake_provider_four_calls_no_tool_execution_and_cleanup(self):
         async def exercise():
             with tempfile.TemporaryDirectory() as tmp:

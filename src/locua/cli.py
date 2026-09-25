@@ -197,10 +197,11 @@ def parser():
                               help="Local baseline/comparator/qwen38, or an explicitly supported hosted model ID.")
             item.add_argument("--thinking", action="store_true", help="Explicit bounded thinking experiment for local qwen38.")
             item.add_argument("--task-observations", action="store_true", help="Apply the hosted task-only observation boundary to a local comparison run.")
-            item.add_argument("--tool-profile", choices=("baseline", "fresh-region-v1", "execution-state-v1"), default="baseline",
-                              help="Explicit generic tool-response experiment; baseline behavior remains the default.")
-            item.add_argument("--instruction-profile", choices=("baseline", "concise-v1", "concise-examples-v1", "concise-help-v1"), default="baseline",
-                              help="Explicit instruction experiment; no model, tool-schema or action-guard change.")
+            item.add_argument("--tool-profile", choices=("baseline", "fresh-region-v1", "execution-state-v1", "continuity-v1", "semantic-v1", "semantic-v2", "step-v1", "step-v2"), default=None,
+                              help="Native local default: step-v2. Older profiles remain explicit comparison overrides.")
+            from .instruction_policy import PROFILES
+            item.add_argument("--instruction-profile", choices=PROFILES, default=None,
+                              help="Native local default: continuity-v1. Overrides never change action guards.")
             item.add_argument("--budget-ledger", help="Shared private hosted-spend ledger; no credentials in this file.")
             item.add_argument("--budget-cap-usd", type=float, default=15,
                               help="Declared hosted ledger cap (0 < cap <= 15); must match an existing ledger. Never resets spending.")
@@ -261,7 +262,7 @@ def main(argv=None):
                 raise LocuaError('bad_invocation', '--manual takes field choices, not a language request.', 'Omit --manual to interpret your request.', exit_code=2)
             operation = lib.start if args.command == 'start' else lib.do
             extra = {'manual': args.manual} if args.command == 'start' else {}
-            result = operation(url=args.url, document=args.document, model=args.model or (('baseline' if getattr(args, 'manual', False) else 'comparator') if args.provider == 'local' else None),
+            result = operation(url=args.url, document=args.document, model=args.model,
                 request=" ".join(args.request) if args.request else None,
                 harness=args.harness, provider=args.provider, thinking=args.thinking, budget_ledger=args.budget_ledger, task_observations=args.task_observations, tool_profile=args.tool_profile,
                 instruction_profile=args.instruction_profile,

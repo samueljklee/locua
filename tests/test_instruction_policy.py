@@ -47,9 +47,9 @@ class IsolationTests(unittest.TestCase):
 
     def test_library_routes_explicit_profile_and_rejects_ignored_options(self):
         with patch('locua.amplifier_session.run', return_value={'status': 'blocked'}) as run:
-            lib.do('Edit the requested draft.', instruction_profile='concise-v1', ask=lambda _: 'run')
+            lib.do('Edit the requested draft.', tool_profile='baseline', instruction_profile='concise-v1', ask=lambda _: 'run')
             self.assertEqual(run.call_args.kwargs['instruction_profile'], 'concise-v1')
-            lib.start(request='Edit the requested draft.', instruction_profile='concise-help-v1', ask=lambda _: 'run')
+            lib.start(request='Edit the requested draft.', tool_profile='baseline', instruction_profile='concise-help-v1', ask=lambda _: 'run')
             self.assertEqual(run.call_args.kwargs['instruction_profile'], 'concise-help-v1')
             for options in ({'harness': 'legacy'}, {'url': 'http://127.0.0.1/'},
                             {'document': 'draft.txt'}):

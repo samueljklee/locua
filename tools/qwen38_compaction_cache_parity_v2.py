@@ -1,4 +1,4 @@
-"""Fixed-input local parity: old checkpoint vs chunk-aligned checkpoint before notice (v2).
+"""Fixed-input local parity: full-prefix vs exact chunk-aligned checkpoint.
 
 Replays retained native requests 007/008/009 exactly. No tool is dispatched and
 new model output is never fed into another request. Each lane is a fresh model
@@ -18,6 +18,9 @@ import time
 from locua.engine.prototype.cli import private_json
 
 NUMBERS=(7,8,9)
+CHECKPOINT_BASES=('before_compaction_notice_aligned_2048',
+                  'before_native_generation_suffix_aligned_2048',
+                  'before_native_empty_thinking_wrapper_aligned_2048')
 
 
 def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -39,7 +42,7 @@ def child(root,lane,freeze_hash):
     from locua.engine.prototype.qwen38_runtime import Qwen38Runtime,parse_tool_output
     from locua.engine.prototype.planner_worker import hard_watchdog
     from locua.engine.prototype.tool_chat_worker import generate_chat
-    verify_freeze(root,freeze_hash)
+    freeze=verify_freeze(root,freeze_hash)
     folder=root/lane;folder.mkdir(mode=0o700,exist_ok=False)
     started=time.perf_counter();runtime=None
     report={'lane':lane,'calls':[],'desktop_dispatches':0,'runtime_released':False}
@@ -50,7 +53,7 @@ def child(root,lane,freeze_hash):
                 volatile_suffix_checkpoint_enabled=lane=='stable_suffix')
         report['load_ms']=(time.perf_counter()-started)*1000
         private_json(folder/'worker-ready.json',runtime.info())
-        for number in NUMBERS:
+        for number in freeze['source_calls']:
             verify_freeze(root,freeze_hash)
             native=json.loads((root/f'input-{number:03d}.json').read_text())
             generation=generate_chat(runtime,deepcopy(native['messages']),deepcopy(native['tools']),
@@ -80,10 +83,18 @@ def child(root,lane,freeze_hash):
         private_json(folder/'summary.json',report)
 
 
-def compare(old,new):
+def expected_bases(numbers,boundary_basis,boundary_bases=None):
+    bases=list(boundary_bases) if boundary_bases is not None else [boundary_basis]*len(numbers)
+    if len(bases)!=len(numbers) or any(b not in CHECKPOINT_BASES for b in bases):
+        raise ValueError('One known checkpoint basis per frozen input required')
+    return dict(zip(numbers,bases,strict=True))
+
+
+def compare(old,new,*,numbers=NUMBERS,boundary_basis='before_compaction_notice_aligned_2048',boundary_bases=None):
     rows=[]
-    if [c['source_call'] for c in old]!=list(NUMBERS) or [c['source_call'] for c in new]!=list(NUMBERS):
+    if [c['source_call'] for c in old]!=list(numbers) or [c['source_call'] for c in new]!=list(numbers):
         raise ValueError('Expected all three exact frozen calls in both lanes')
+    bases=expected_bases(numbers,boundary_basis,boundary_bases)
     for a,b in zip(old,new,strict=True):
         metrics=b['generation_metrics']
         checks={'raw_output_equal':a['raw_output']==b['raw_output'],
@@ -95,10 +106,10 @@ def compare(old,new):
             'no_dispatch':a['dispatched'] is False and b['dispatched'] is False,
             'full_context_counted':metrics['full_input_tokens']==b['usage']['input_tokens'],
             'full_prompt_preserved':metrics.get('full_prompt_preserved') is True,
-            'before_notice_checkpoint':metrics.get('checkpoint_boundary_basis')=='before_compaction_notice_aligned_2048',
+            'expected_exact_checkpoint':metrics.get('checkpoint_boundary_basis')==bases[b['source_call']],
             'original_final_token_decoding':metrics.get('generation_suffix_tokens')==1,
             'aligned_checkpoint':metrics.get('checkpoint_tokens',-1)%2048==0 and metrics.get('prefill_chunk_size')==2048,
-            'later_calls_reuse':b['source_call']==7 or (metrics['cache_lookup']=='exact_prefix' and metrics['reused_input_tokens']>0)}
+            'later_calls_reuse':b['source_call']==numbers[0] or (metrics['cache_lookup']=='exact_prefix' and metrics['reused_input_tokens']>0)}
         rows.append({'source_call':a['source_call'],'checks':checks,'passed':all(checks.values()),
             'old_generation_ms':a['timing']['generation_ms'],'new_generation_ms':b['timing']['generation_ms'],
             'old_prefill_ms':a['generation_metrics'].get('prefill_ms'),'new_prefill_ms':metrics.get('prefill_ms'),
@@ -107,15 +118,18 @@ def compare(old,new):
     return rows
 
 
-def run(root,source,config=None):
+def run(root,source,config=None,*,numbers=NUMBERS,boundary_basis='before_compaction_notice_aligned_2048',boundary_bases=None):
     from locua import amplifier_provider
     from locua.engine import runtime_paths
     from locua.engine.prototype import qwen38_runtime,tool_chat_worker
     from locua.engine_adapter import runtime_environment
     from locua.lib import _config
+    if len(numbers)!=3 or len(set(numbers))!=3 or any(type(n)is not int or n<1 for n in numbers):
+        raise ValueError('Exactly three distinct positive retained call numbers required')
+    bases=expected_bases(numbers,boundary_basis,boundary_bases)
     root=Path(root).resolve();root.mkdir(mode=0o700,exist_ok=False)
     source=Path(source).resolve();inputs={}
-    for n in NUMBERS:
+    for n in numbers:
         original=source/f'call-{n:03d}-native.json';raw=original.read_bytes();native=json.loads(raw)
         if not isinstance(native.get('messages'),list) or not isinstance(native.get('tools'),list):
             raise ValueError('Expected retained canonical native request')
@@ -123,7 +137,9 @@ def run(root,source,config=None):
     paths=[Path(__file__).resolve(),Path(qwen38_runtime.__file__),Path(tool_chat_worker.__file__),
            Path(amplifier_provider.__file__),Path(runtime_paths.__file__),qwen38_runtime.PIN_PATH,qwen38_runtime.MANIFEST_PATH]
     freeze={'input_hashes':inputs,'source_requests':str(source),'source_hashes':{str(p):digest(p) for p in paths},
-        'lanes':['full_prefix','stable_suffix'],'source_calls':list(NUMBERS),'model':'qwen38',
+        'lanes':['full_prefix','stable_suffix'],'source_calls':list(numbers),'model':'qwen38',
+        'expected_checkpoint_basis':boundary_basis,
+        'expected_checkpoint_bases':[bases[n] for n in numbers],
         'input_limit':24576,'output_limit':2048,'generation_limit_seconds':120,
         'fixed_inputs_no_generated_history':True,'desktop_dispatches':0,'candidate_default_enabled':False}
     private_json(root/'freeze.json',freeze);freeze_hash=digest(root/'freeze.json')
@@ -136,7 +152,7 @@ def run(root,source,config=None):
                 command=['/usr/bin/sandbox-exec','-f',str(runtime_paths.ROOT/'probes/offline-macos.sb'),
                     runtime_paths.runtime_python(),str(Path(__file__).resolve()),'--worker',lane,
                     '--out',str(root),'--freeze-sha256',freeze_hash]
-                print('Starting',lane,'fixed retained calls007/008/009; no desktop dispatch',flush=True)
+                print('Starting',lane,'fixed retained calls '+','.join(f'{n:03d}' for n in numbers)+'; no desktop dispatch',flush=True)
                 log=root/(lane+'.log');process=None
                 with log.open('x') as output:
                     log.chmod(0o600)
@@ -153,7 +169,8 @@ def run(root,source,config=None):
                 if code:raise RuntimeError(lane+' failed; see '+str(log))
                 verify_freeze(root,freeze_hash)
                 report['lanes'][lane]['result']=json.loads((root/lane/'summary.json').read_text())
-        report['comparisons']=compare(report['lanes']['full_prefix']['result']['calls'],report['lanes']['stable_suffix']['result']['calls'])
+        report['comparisons']=compare(report['lanes']['full_prefix']['result']['calls'],report['lanes']['stable_suffix']['result']['calls'],
+                                      numbers=numbers,boundary_bases=[bases[n] for n in numbers])
         report['passed']=all(c['passed'] for c in report['comparisons']) and all(
             r['process_exited'] and r['result']['runtime_released'] for r in report['lanes'].values())
         report['status']='passed' if report['passed'] else 'failed'
@@ -168,11 +185,17 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out',required=True);parser.add_argument('--config')
     parser.add_argument('--source',default=str(Path(__file__).resolve().parents[1]/'artifacts/tool-schema-v5-2-001/textedit-regression/provider'))
+    parser.add_argument('--calls',type=int,nargs=3,default=NUMBERS)
+    parser.add_argument('--checkpoint-basis',default='before_compaction_notice_aligned_2048',
+        choices=CHECKPOINT_BASES)
+    parser.add_argument('--checkpoint-bases',nargs=3,choices=CHECKPOINT_BASES,
+        help='Expected checkpoint basis for each frozen call, in --calls order; overrides --checkpoint-basis')
     parser.add_argument('--worker',choices=['full_prefix','stable_suffix'],help=argparse.SUPPRESS)
     parser.add_argument('--freeze-sha256',help=argparse.SUPPRESS)
     args=parser.parse_args()
     if args.worker:child(Path(args.out),args.worker,args.freeze_sha256)
     else:
-        result=run(args.out,args.source,args.config)
+        result=run(args.out,args.source,args.config,numbers=args.calls,boundary_basis=args.checkpoint_basis,
+                   boundary_bases=args.checkpoint_bases)
         print(json.dumps({'status':result['status'],'passed':result.get('passed'),'out':args.out}))
         raise SystemExit(0 if result.get('passed') else 1)

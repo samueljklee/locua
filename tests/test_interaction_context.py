@@ -87,7 +87,7 @@ class ContinuationTests(unittest.TestCase):
             lib.do('Example',tool_profile='execution-state-v1',task_observations=True,ask=lambda _: 'run')
         with patch('locua.amplifier_session.run',return_value={'status':'blocked'}) as run:
             lib.do('Example',ask=lambda _: 'run')
-            self.assertNotIn('tool_profile',run.call_args.kwargs)
+            self.assertEqual(run.call_args.kwargs['tool_profile'], 'step-v2')
         for kw in ({'harness':'legacy'},{'url':'https://example.invalid'},{'tool_profile':'invented'}):
             with self.assertRaises(LocuaError):
                 lib.do('Example',ask=lambda _: 'run',**({'tool_profile':'fresh-region-v1'}|kw))

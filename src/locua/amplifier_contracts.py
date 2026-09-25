@@ -15,6 +15,8 @@ TEXT = {'type': 'string', 'pattern': r'\S'}
 LIMIT = {'type': 'integer', 'minimum': 1, 'maximum': 128}
 START = {'type': 'integer', 'minimum': 0}
 BOOL = {'type': 'boolean'}
+PERSISTENCE = {'type': 'string', 'enum': ['not_requested', 'backing_file_unchanged', 'saved_output_required'],
+    'description': 'Explicit user requirement, not a capability claim. not_requested means no backing-file constraint. Unchanged bytes or saved output require separate trusted evidence; no Save call is not unchanged-file proof.'}
 
 
 def obj(properties, required=(), **extra):
@@ -74,6 +76,11 @@ GOAL = choice([
         ('id', 'kind', 'target', 'control_id', 'value', 'evidence_plane'),
         description='Change and verify the exact editor buffer. Naming a document or replacing its entire text does not authorize an additional Save operation. Add saving only when explicitly requested by the user; saved output requires separate evidence and cannot be proved by this buffer predicate.'),
     obj({**_GOAL_COMMON, 'kind': {'const': 'state'}, 'value': BOOL,
+         'property': {'type': 'string', 'enum': ['checked', 'selected'], 'description':
+             'Explicit display attribute to verify, including selected for choice buttons. '
+             'An unknown initial value remains unknown. To act without known state, separately review '
+             'one observed press; a goal-toggle effect still requires known fresh mismatch. '
+             'Completion requires fresh explicit boolean readback of this property.'},
          'evidence_plane': {'const': 'display'}},
         ('id', 'kind', 'target', 'control_id', 'value', 'evidence_plane')),
     obj({**_GOAL_COMMON, 'kind': {'const': 'calculation'}, 'expression': TEXT,
@@ -85,7 +92,7 @@ EFFECT = choice([
     obj({'kind': {'const': 'goal'}, 'goal_id': ID}, ('kind', 'goal_id'),
         description='Authorize only this goal. Calculation permits observed arithmetic inputs, including full reset or whole-expression replacement to establish a known start; fresh zero alone is insufficient. Inspect each action before act. No control_id, purpose or button recipe.'),
     obj({'kind': {'const': 'press'}, 'control_id': ID, 'purpose': TEXT},
-        ('kind', 'control_id', 'purpose'), description='One observed navigation press.'),
+        ('kind', 'control_id', 'purpose'), description='One explicitly reviewed observed press for navigation or a requested change. Separate from outcome verification; never authorizes automatic retries.'),
 ])
 PRESERVE = choice([
     obj({'control_id': ID, 'property': {'const': 'value'}, 'value': S},
@@ -100,11 +107,16 @@ def inspect_branch(operation, fields, required=()):
                ('snapshot_id', 'operation', *required))
 
 
+INSPECTION_CURSOR = {**ID, 'description':
+    'Pagination only: copy coverage.continuation exactly from the same snapshot, operation and filters. '
+    'Omit on the first page. Never put a region ID, control ID or search text here.'}
 INSPECT_SCHEMA = choice([
-    inspect_branch('overview', {'cursor': ID, 'limit': LIMIT}),
-    inspect_branch('list', {'region_id': ID, 'role': ID, 'query': {**S, 'minLength':1, 'maxLength':1024},
-                            'cursor': ID, 'limit': LIMIT}),
-    inspect_branch('control', {'control_id': ID, 'cursor': ID}, ('control_id',)),
+    inspect_branch('overview', {'cursor': INSPECTION_CURSOR, 'limit': LIMIT}),
+    inspect_branch('list', {'region_id': {**ID, 'description':
+                                'Observed region_id from the overview. Use operation=list; omit cursor to start this region.'},
+                            'role': ID, 'query': {**S, 'minLength':1, 'maxLength':1024},
+                            'cursor': INSPECTION_CURSOR, 'limit': LIMIT}),
+    inspect_branch('control', {'control_id': ID, 'cursor': INSPECTION_CURSOR}, ('control_id',)),
 ])
 
 STATUS_SCHEMA = choice([
@@ -233,16 +245,45 @@ def _errors(schema, value, path='$'):
     return [e for i,e in enumerate(errors) if e not in errors[:i]]
 
 
-def validate_tool_arguments(name, arguments):
+TEXT_PERSISTENCE_CONTRACT = 'text-persistence-v1'
+LEGACY_PERSISTENCE_CONTRACT = 'legacy-buffer-only-comparison'
+TEXT_PERSISTENCE_GUIDANCE = ('Every text goal must explicitly declare persistence_requirement: not_requested, '
+    'backing_file_unchanged, or saved_output_required. Exact buffer evidence does not prove unchanged backing '
+    'bytes; the application may autosave. Required backing-file outcomes are unsupported by this generic '
+    'adapter and stop before edits.')
+
+
+def persistence_specs(specs, *, contract=None):
+    """Derive matching published and accepted schemas for one internal contract."""
+    if contract not in (None, TEXT_PERSISTENCE_CONTRACT):
+        raise ValueError('Unknown internal text persistence contract')
+    selected=deepcopy(specs)
+    if contract is None:return selected
+    description,schema=selected['locua_review']
+    goal=schema['properties']['goals']['items']
+    goal['properties']['persistence_requirement']=deepcopy(PERSISTENCE)
+    text=next(branch for branch in goal['oneOf'] if branch['properties']['kind'].get('const')=='text')
+    text['properties']['persistence_requirement']=deepcopy(PERSISTENCE)
+    text['required'].append('persistence_requirement')
+    selected['locua_review']=(description+' '+TEXT_PERSISTENCE_GUIDANCE,schema)
+    return selected
+
+
+def validate_tool_arguments(name, arguments, *, specs=None):
     """Return None or raise actionable errors; never rewrite or authorize input."""
-    if not isinstance(name, str) or name not in SPECS:
+    selected=SPECS if specs is None else specs
+    if not isinstance(name, str) or name not in selected:
         raise ArgumentContractError(str(name), [{'path':'$', 'code':'unknown_tool','message':'Choose a registered tool name.'}])
-    schema=SPECS[name][1]
+    schema=selected[name][1]
     errors=_errors(schema,arguments)
     if (name == 'locua_inspect' and isinstance(arguments, dict)
             and 'operation' in arguments and arguments['operation'] not in ('overview', 'list', 'control')):
         errors.append({'path':'$.operation', 'code':'unsupported_operation',
             'message':'Supported operations: overview, list, control. Use list with region_id, role or query to narrow observed items; control requires control_id.'})
+    if (name == 'locua_inspect' and isinstance(arguments, dict)
+            and arguments.get('operation') in ('overview', 'control') and 'region_id' in arguments):
+        errors.insert(0, {'path':'$.region_id', 'code':'incompatible_operation',
+            'message':"region_id requires operation='list'. To start inspecting that region, omit cursor; it is pagination only."})
     if not errors and name=='locua_review':
         goals=arguments['goals']; ids=[g['id'] for g in goals]
         for i,goal in enumerate(goals):

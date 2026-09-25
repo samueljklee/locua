@@ -18,6 +18,8 @@ import time
 
 from .engine.prototype.cua import CuaAdapter, CuaRefusal, PrivateTrace
 from .engine.prototype.core import action_available, _identity, _signature
+from . import native_selection
+from .desktop_attention import VisibleDesktopOwner, rectangle, area_for
 from .engine.prototype.perception import (NativeObservationUnavailable,
     ObservationError, validate_observation)
 
@@ -111,6 +113,7 @@ class DesktopTools:
         self._captures = {}
         self._adapters = {}
         self._catalogs = {}
+        self._window_frames = {}
         self._uncertain_targets = set()
         self.cleanup_result = None
 
@@ -119,7 +122,7 @@ class DesktopTools:
             raise ValueError('DesktopTools is closed')
         if self._owner is None:
             from .engine_adapter import owner
-            self._owner = owner(self.config, self.out)
+            self._owner = VisibleDesktopOwner(owner(self.config, self.out))
         self._owner.check()
         return self._owner
 
@@ -425,11 +428,49 @@ class DesktopTools:
             adapter = CuaAdapter(self._connection(), kind='native_window_state', target=target, execute=True, regions=True)
             self._adapters[key] = adapter
         observation = adapter.observe()
+        native_selection.enrich(observation, self._connection().schemas)
         validate_observation(observation, expected_target=target, max_age_s=30)
         if observation.get('kind') != 'native_window_state':
             raise ValueError('Native observation required')
         self._captures[key] = deepcopy(observation)
+        self._window_frames[observation['snapshot_id']] = rectangle(matches[0].get('bounds'))
         return observation
+
+    def attention(self, observation, *, control_ids=None, label='window overview', retained=False):
+        """Move only the synthetic cursor to the inspected evidence's scope.
+
+        A current matching window rectangle is necessary. Retained control
+        geometry is explicitly stale evidence, never permission to click.
+        Failure to display the marker cannot change task/action authority.
+        """
+        with self._lock:
+            base = {'operation': 'attention', 'application_input': False,
+                    'label': label, 'retained_snapshot': retained,
+                    'snapshot_id': observation.get('snapshot_id'), 'action_authority': False}
+            try:
+                frame = self._window_frames.get(observation.get('snapshot_id'))
+                if frame is None:
+                    raise ValueError('Captured window geometry unavailable')
+                target = _target(observation['target'])
+                current = [w for w in self._windows(target['pid'])['windows']
+                           if w.get('window_id') == target['window_id'] and w.get('pid') == target['pid']]
+                if (len(current) != 1 or current[0].get('is_on_screen') is not True
+                        or rectangle(current[0].get('bounds')) != frame):
+                    raise ValueError('Window moved, hidden or unavailable; old geometry is not a current visual target')
+                area = area_for(observation, frame, control_ids)
+                if area is None:
+                    raise ValueError('Inspected controls have no captured geometry inside the current window')
+                result = {**base, 'status': 'shown', 'area': area,
+                          **self._connection().move(area)}
+            except Exception as exc:
+                result = {**base, 'status': 'unavailable', 'reason': str(exc)}
+            self.trace({'type': 'desktop_attention', 'result': result})
+            return result
+
+    @staticmethod
+    def _available(observation, control, kind):
+        return (action_available(observation, control, kind)
+                or kind == 'press' and native_selection.eligible(control))
 
     def observe(self, target):
         with self._lock:
@@ -463,14 +504,14 @@ class DesktopTools:
                 observation_hash = _digest(observation)
                 for c in observation['controls']:
                     for kind in ('press', 'set_text'):
-                        if not action_available(observation, c, kind):
+                        if not DesktopTools._available(observation, c, kind):
                             continue
                         if kind == 'set_text' and c.get('value_evidence', {}).get('exact_value_proven') is not True:
                             unavailable.append({'control_id': c['id'], 'kind':kind, 'reason':'exact_editor_readback_unproved'})
                             continue
                         item = {'kind':kind, 'control_id':c['id'], 'snapshot_id':observation['snapshot_id'],
                                 'target':deepcopy(observation['target']), 'name':c.get('name'), 'role':c.get('role'),
-                                'description':('Press ' if kind=='press' else 'Replace exact editor text in ')+str(c.get('role'))+' '+json.dumps(c.get('name'),ensure_ascii=False),
+                                'description':('Select ' if kind=='press' and native_selection.eligible(c) else 'Press ' if kind=='press' else 'Replace exact editor text in ')+str(c.get('role'))+' '+json.dumps(c.get('name'),ensure_ascii=False),
                                 'requires_value':kind=='set_text'}
                         item['id'] = _digest({'observation':observation_hash, 'action':item})[:32]
                         catalog.append(item)
@@ -509,8 +550,10 @@ class DesktopTools:
                 if len(peers)!=1 or _signature(peers[0],fresh)!=stored['signature']:
                     raise ValueError('Target control identity, state, geometry or ancestry changed/ambiguous')
                 control=peers[0]
-                if not action_available(fresh,control,kind):
+                if not self._available(fresh,control,kind):
                     raise ValueError('Fresh control no longer supports the selected capability')
+                selection = kind == 'press' and native_selection.eligible(control)
+                selection_identity = native_selection.readback_identity(control, fresh) if selection else None
                 if kind=='set_text' and control.get('value_evidence',{}).get('exact_value_proven') is not True:
                     raise ValueError('Fresh exact editor readback is unavailable')
                 # A value-derived editor name may change after replacement.
@@ -544,6 +587,17 @@ class DesktopTools:
                               'exact_value_proven':False,'task_complete':False,
                               'committed_document_proven':False,'saved_output_proven':False}
                 status='dispatched'
+                if selection:
+                    selected_peers = [c for c in post['controls'] if native_selection.eligible(c)
+                        and native_selection.readback_identity(c, post) == selection_identity]
+                    selected = (len(selected_peers) == 1
+                        and selected_peers[0].get('states', {}).get('selected') is True)
+                    verification['selection_readback'] = {'property': 'selected', 'expected': True,
+                        'matched': selected, 'matching_controls': len(selected_peers),
+                        'snapshot_id': post['snapshot_id']}
+                    status = 'dispatched' if selected else 'uncertain'
+                    if not selected:
+                        self._uncertain_targets.add(key)
                 if kind=='set_text':
                     checked=verify_value(value_binding,value_goal,post)
                     exact=checked['matched']

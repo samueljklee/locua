@@ -29,7 +29,7 @@ LEDGER=BASE/'api-budget.json'
 SOURCES=(
     ('issued-prefix','development','exact_sequence',BASE/'v65-local-calculator-1',16),
     ('approved-text','development','exact_text',BASE/'v65-openai-textedit-1',6),
-    ('no-scope','development','missing_reference',Path('/Users/samule/Library/Application Support/locua/runs/do-2f8ad69bf08a'),7),
+    ('no-scope','development','missing_reference',Path.home()/'Library/Application Support/locua/runs/do-2f8ad69bf08a',7),
     ('stale-action','evaluation','stale_reference',BASE/'v63-local-calculator-1',11),
     ('grouping','evaluation','exact_sequence',BASE/'v65-openai-fresh-1',20),
     ('missing-goal','evaluation','missing_reference',BASE/'v65-openai-calculator-2',33),
@@ -37,19 +37,25 @@ SOURCES=(
 read,write,sha,record=prior.read,prior.write,prior.sha,prior.record
 
 
-def transform(request,profile):
-    from locua.instruction_policy import instruction_policy,tool_descriptions,metadata
+def transform(request,profile,*,allow_historical_inventory=False):
+    from locua.instruction_policy import PROFILES,instruction_policy,tool_descriptions,metadata
     out=deepcopy(request); rows=out.get('messages',[])
     if not rows or rows[0].get('role')!='system' or not isinstance(rows[0].get('content'),str):
         raise ValueError('First original system message required')
-    old=instruction_policy('baseline')
-    if not rows[0]['content'].startswith(old+MARKER):
+    matches={instruction_policy(p) for p in PROFILES
+             if rows[0]['content'].startswith(instruction_policy(p)+MARKER)}
+    if len(matches)!=1:
         raise ValueError('Unknown original SYSTEM; no fuzzy replacement')
+    old=matches.pop()
     suffix=rows[0]['content'][len(old):]
     rows[0]['content']=instruction_policy(profile)+suffix
     descriptions=tool_descriptions(profile)
     if descriptions:
-        if {t['name'] for t in out['tools']} != set(descriptions):raise ValueError('Help profile inventory mismatch')
+        # Explicit historical replay can predate a tool. The default remains
+        # strict; opt-in changes only descriptions, never the tool inventory.
+        actual={t['name'] for t in out['tools']}
+        compatible=(actual <= set(descriptions) if allow_historical_inventory else actual == set(descriptions))
+        if not compatible:raise ValueError('Help profile inventory mismatch')
         for tool in out['tools']:tool['description']=descriptions[tool['name']]
     remainder=deepcopy(out);remainder['messages'][0]['content']=request['messages'][0]['content']
     if descriptions:

@@ -9,9 +9,9 @@ python3 -m venv .venv
 ```
 
 On Windows, virtual-environment executables live under `Scripts`; native/model
-execution on Windows and Linux is not validated. A repository URL has not been
-published yet. Once published, normal `pip install git+https://...@<revision>`
-installation uses the same `pyproject.toml`; no global script installer is needed.
+execution on Windows and Linux is not validated. The private repository is `https://github.com/samueljklee/locua`. Clone with
+authorized GitHub access; installation uses this `pyproject.toml`, with no global
+script installer required.
 
 The package owns its engine sources. It does not search for a sibling lab checkout
 or a developer's home directory. Model weights and native executables are external
@@ -57,13 +57,13 @@ Qwen2.5-1.5B weights; the repository name `Qwen-2.5-1B-RLCD` is not evidence of 
 separate verified fine-tuned weight release. Comparator means the explicit pinned
 Qwen2.5-7B experiment. Runtime failures must name the missing asset and stop.
 
-Native Amplifier mode also accepts the explicit experimental `--model qwen38`:
+Native local Amplifier mode defaults to `--model qwen38`:
 `mlx-community/Qwen3.8-27B-4bit`, revision
 `10c35caafbb80f7dc6a7a432cdd11af10a6d4818`. It requires the separately provisioned
 files listed in the packaged `engine/probes/qwen38-files.json` manifest (about
 16 GB). Loading verifies these hashes and the supported local MLX model class;
 it never downloads assets or enables remote code during a task. This is a
-text-only, nonthinking ordinary tool-calling comparison, not an RLCD replacement
+text-only, nonthinking ordinary tool-calling preview, not an RLCD replacement
 or proof of suitability for ordinary Macs. No cloud fallback is configured.
 
 macOS permissions belong to each application's own identity. A signed Cua

@@ -39,8 +39,12 @@ class ParserTests(unittest.TestCase):
                      [('text','x'),('data','{"x":NaN}')]):
             with self.subTest(args=args),self.assertRaises(ValueError):parse_tool_output(call(args),TOOLS)
 
-    def test_unknown_name_required_omission_incomplete_and_ambiguous_markup_refuse(self):
-        for raw in (call([('text','x')],name='other'),call([]),call([('text','x')])[:-5],
+    def test_missing_required_arguments_are_preserved_for_tool_contract_feedback(self):
+        self.assertEqual(parse_tool_output(call([]),TOOLS),[
+            {'type':'tool_call','name':'sample','arguments':{}}])
+
+    def test_unknown_name_incomplete_and_ambiguous_markup_refuse(self):
+        for raw in (call([('text','x')],name='other'),call([('text','x')])[:-5],
                     call([('text','x</parameter>bad')]),call([('text','<function=evil>')]),
                     '<think>unrequested reasoning</think>'+call([('text','x')])):
             with self.subTest(raw=raw),self.assertRaises(ValueError):parse_tool_output(raw,TOOLS)
