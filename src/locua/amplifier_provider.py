@@ -261,7 +261,7 @@ def parse_native_output(raw,tool_names,finish_reason='stop'):
         if not raw.startswith('</tool_call>',closing):raise ValueError('Native tool call lacks exact closing tag')
         if not isinstance(value,dict) or set(value)!={'name','arguments'}:
             raise ValueError('Native tool call requires exactly name and arguments')
-        if value['name'] not in tool_names or not isinstance(value['arguments'],dict):
+        if not isinstance(value['name'],str) or value['name'] not in tool_names or not isinstance(value['arguments'],dict):
             raise ValueError('Unknown tool name or non-object arguments')
         _finite_json(value)
         count+=1
@@ -270,6 +270,37 @@ def parse_native_output(raw,tool_names,finish_reason='stop'):
         pos=closing+len('</tool_call>')
     if not raw.strip():raise ValueError('Empty native response')
     return blocks
+
+
+class NativeToolFormatError(ValueError):
+    """A finished generation failed parsing; no call from it may be released."""
+    def __init__(self,message,*,generation_deadline):
+        super().__init__(message)
+        self.generation_deadline=generation_deadline
+
+
+def protocol_correction(model,error):
+    """Describe the native grammar without choosing an action or repairing data."""
+    if model=='qwen38':
+        envelope=('<tool_call>\n<function=DECLARED_TOOL_NAME>\n'
+            '<parameter=DECLARED_ARGUMENT_NAME>VALUE</parameter>\n'
+            '</function>\n</tool_call>')
+        details=('Use the native XML function/parameter form, not a JSON tool envelope. '
+            'Use each declared parameter at most once. String values are literal; '
+            'object/array/number/boolean values must use their declared JSON types. '
+            'Do not add XML entities or quotes around literal string values.')
+    else:
+        envelope='<tool_call>{"name":"DECLARED_TOOL_NAME","arguments":{"DECLARED_ARGUMENT_NAME":"VALUE"}}</tool_call>'
+        details=('Each envelope must have exactly two keys: name and arguments. '
+            'Put every function argument inside the arguments object, never beside name. '
+            'Use valid JSON and the declared argument types.')
+    return ('[Locua native protocol correction; one retry]\n'
+        'Your preceding response was rejected before dispatch. None of its tool calls executed. '
+        'Parser error: '+str(error)+'\n'
+        'Preserve the original user request, restrictions, and observed references. '
+        'Generate a complete replacement response using only the published tools and schemas. '
+        'Do not invent missing values, references, approvals, or tool results. '
+        'The following is syntax with placeholders, not an action recommendation:\n'+envelope+'\n'+details)
 
 
 class ToolChatService:
@@ -451,9 +482,12 @@ class ToolChatService:
 class LocalAmplifierProvider:
     """Amplifier provider with a lazily loaded resident local model per session."""
     name='locua-local-qwen'
-    def __init__(self,*,model='comparator',runtime_config=None,out=None,service_factory=None,max_calls=48,**limits):
+    def __init__(self,*,model='comparator',runtime_config=None,out=None,service_factory=None,max_calls=48,
+                 protocol_recovery=False,**limits):
         if model not in MODEL_KEYS:raise ValueError('Select explicit pinned baseline, comparator or qwen38')
         if type(max_calls)is not int or not 1<=max_calls<=128:raise ValueError('Provider max_calls must be an integer1..128')
+        if type(protocol_recovery)is not bool:raise ValueError('Protocol recovery must be an explicit boolean')
+        self.protocol_recovery=protocol_recovery
         self.max_calls=max_calls
         self.qwen38_thinking=limits.get('qwen38_thinking',False)
         decoding_for(model,thinking=self.qwen38_thinking)
@@ -461,7 +495,7 @@ class LocalAmplifierProvider:
             raise ValueError('Thinking prompt cache requires separate parity evidence; keep caching disabled')
         self.model=model;self.runtime_config=runtime_config;self.out=Path(out) if out is not None else None
         self._factory=service_factory or ToolChatService;self._limits=limits;self._service=None
-        self._closed=False;self._serial=threading.Lock();self._calls=0;self.records=[]
+        self._closed=False;self._serial=threading.RLock();self._calls=0;self.records=[]
         self._structured_tool_results={};self.budget_records=[];self._last_measurement=None
         if self.out is not None:self.out.mkdir(parents=True,mode=0o700,exist_ok=False)
 
@@ -578,6 +612,61 @@ class LocalAmplifierProvider:
             raise
 
     def _complete(self,request,kwargs):
+        if not self.protocol_recovery:return self._complete_once(request,kwargs)
+        # Keep both generations serial with all other provider operations. Each
+        # attempt consumes the existing call budget and retains its own artifact;
+        # only a fully parsed replacement can escape to Amplifier's tool loop.
+        with self._serial:
+            try:return self._complete_once(request,kwargs)
+            except NativeToolFormatError as error:
+                first=self.records[-1]
+                recovery={'enabled':True,'max_corrections':1,'first_attempt_call':first['call'],
+                    'native_protocol':'qwen38_xml' if self.model=='qwen38' else 'qwen25_json',
+                    'status':'pending','first_attempt_dispatched':False}
+                first['protocol_recovery']=recovery
+                try:
+                    if self._closed:raise RuntimeError('Canceled formatting correction; no tool calls released')
+                    if self._calls>=self.max_calls:
+                        raise RuntimeError('provider_call_budget_exhausted; formatting correction not started')
+                    if time.monotonic()>=error.generation_deadline:
+                        raise TimeoutError('Shared generation deadline exhausted; formatting correction not started')
+                    corrected=deepcopy(first['request'])
+                    corrected['messages'].extend([
+                        {'role':'assistant','content':first['generation']['raw_output']},
+                        {'role':'user','content':protocol_correction(self.model,error)}])
+                    # Token counting has its own bounded worker operation. Do not
+                    # start it unless the shared deadline covers that entire cap;
+                    # count the corrected history, never reuse the old count.
+                    if error.generation_deadline-time.monotonic()<=COUNT_SECONDS:
+                        raise TimeoutError('Insufficient shared deadline for correction token preflight; no retry generation started')
+                    measured=self._request_budget(corrected,0,None)
+                    recovery['budget_measurement']=measured['measurement_sequence']
+                    if measured['estimated_input_tokens']>measured['input_limit_tokens']:
+                        raise ValueError('Formatting correction exceeds exact input token budget; no retry generation started')
+                    response=self._complete_once(corrected,{},generation_deadline=error.generation_deadline,
+                        recovery_of=first['call'])
+                    second=self.records[-1]
+                    # Amplifier sees one provider response. Its usage must include
+                    # both generations, while per-attempt telemetry stays separate.
+                    from amplifier_core.message_models import Usage
+                    input_tokens=sum(row['generation']['usage']['input_tokens'] for row in (first,second))
+                    output_tokens=sum(row['generation']['usage']['output_tokens'] for row in (first,second))
+                    response.usage=Usage(input_tokens=input_tokens,output_tokens=output_tokens,
+                        total_tokens=input_tokens+output_tokens)
+                    recovery.update(status='recovered',correction_call=second['call'])
+                    response.metadata['protocol_recovery']={**recovery,'generation_calls':2,
+                        'usage_includes_both_attempts':True,
+                        'generation_ms_total':sum(row['generation']['timing']['generation_ms'] for row in (first,second)),
+                        'response_timing_scope':'successful_correction_attempt'}
+                    self._save(f"call-{first['call']:03d}-protocol-response.json",
+                        response.model_dump(mode='json',exclude_none=True))
+                    return response
+                except BaseException as retry_error:
+                    recovery.update(status='failed',error={'type':type(retry_error).__name__,'message':str(retry_error)})
+                    raise
+                finally:self._save(f"call-{first['call']:03d}-protocol-recovery.json",recovery)
+
+    def _complete_once(self,request,kwargs,*,generation_deadline=None,recovery_of=None):
         from .engine_adapter import runtime_environment
         with self._serial:
             if self._closed:raise RuntimeError('Local tool-chat provider is closed')
@@ -586,6 +675,7 @@ class LocalAmplifierProvider:
                 'status':'started','dispatched':False,'inference_started':False,'complete_generation_count':0,
                 'call_budget':{'max_calls':self.max_calls,'request_number':sequence,'refused':sequence>self.max_calls}}
             self.records.append(record);self._save(f'call-{sequence:03d}-input.json',original)
+            if recovery_of is not None:record['protocol_recovery_of']=recovery_of
             try:
                 if sequence>self.max_calls:raise RuntimeError('provider_call_budget_exhausted; no further generation started')
                 if kwargs:raise ValueError('Unsupported provider call overrides: '+','.join(sorted(kwargs)))
@@ -603,9 +693,22 @@ class LocalAmplifierProvider:
                 names={t['function']['name'] for t in native['tools']}
                 if required is not None and required not in names:raise ValueError('Required tool is absent')
                 self._ensure_service()
+                generation_timeout=original.get('timeout')
+                if self.protocol_recovery:
+                    configured_timeout=self._limits.get('generation_timeout_s') or model_limits(self.model)['generation_timeout_s']
+                    timeout=configured_timeout if generation_timeout is None else generation_timeout
+                    validate_limits(self._limits.get('max_input_tokens',MAX_INPUT_TOKENS),
+                        original.get('max_output_tokens') or self._limits.get('max_output_tokens') or model_limits(self.model)['max_output_tokens'],
+                        timeout,model=self.model)
+                    if generation_deadline is None:generation_deadline=time.monotonic()+timeout
+                    else:
+                        generation_timeout=min(timeout,generation_deadline-time.monotonic())
+                        if generation_timeout<=0:raise TimeoutError('Shared generation deadline exhausted before correction generation')
+                    record['generation_budget']={'shared_across_formatting_correction':True,
+                        'remaining_timeout_s':generation_timeout if generation_timeout is not None else timeout}
                 record.update(inference_started=True,complete_generation_count=None)
                 result=self._service.generate(native['messages'],[] if choice=='none' else native['tools'],
-                    max_output_tokens=original.get('max_output_tokens'),generation_timeout_s=original.get('timeout'))
+                    max_output_tokens=original.get('max_output_tokens'),generation_timeout_s=generation_timeout)
                 record['generation']=result;record['complete_generation_count']=result.get('generation_calls')
                 measured=self._last_measurement
                 payload_hash=_hash({'messages':native['messages'],'tools':[] if choice=='none' else native['tools']})
@@ -618,10 +721,15 @@ class LocalAmplifierProvider:
                 if self._closed:raise RuntimeError('Canceled completion discarded; no tool calls released')
                 if self.qwen38_thinking and result.get('finish_reason')=='length':
                     raise ValueError('Bounded thinking output token budget exhausted; final result incomplete, no tools released')
-                if self.model=='qwen38':
-                    from .engine.prototype.qwen38_runtime import parse_tool_output
-                    blocks=parse_tool_output(result['raw_output'],[] if choice=='none' else native['tools'],result['finish_reason'])
-                else:blocks=parse_native_output(result['raw_output'],set() if choice=='none' else names,result['finish_reason'])
+                try:
+                    if self.model=='qwen38':
+                        from .engine.prototype.qwen38_runtime import parse_tool_output
+                        blocks=parse_tool_output(result['raw_output'],[] if choice=='none' else native['tools'],result['finish_reason'])
+                    else:blocks=parse_native_output(result['raw_output'],set() if choice=='none' else names,result['finish_reason'])
+                except ValueError as error:
+                    if self.protocol_recovery and result['finish_reason']=='stop':
+                        raise NativeToolFormatError(str(error),generation_deadline=generation_deadline) from error
+                    raise
                 calls=[b for b in blocks if b['type']=='tool_call']
                 if choice=='required' and not calls:raise ValueError('Required tool call missing')
                 if required is not None and (not calls or any(c['name']!=required for c in calls)):raise ValueError('Required named tool call not produced')

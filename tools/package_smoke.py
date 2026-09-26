@@ -71,7 +71,7 @@ DETERMINISTIC_START_PROBE = textwrap.dedent('''\
                 exit_code = cli.main(argv)
             assert exit_code == expected, (status, exit_code)
             assert stderr.getvalue() == ""
-            assert calls[-1]["model"] == "baseline"
+            assert calls[-1]["model"] is None  # Public library resolves mode-specific omissions.
             assert calls[-1]["browser_click_route"] == "trusted"
             assert calls[-1]["native_save_route"] == "menu"
             assert callable(calls[-1]["ask"]) and callable(calls[-1]["progress"])

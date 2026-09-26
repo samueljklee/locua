@@ -29,7 +29,7 @@ class StartOnboardingTests(unittest.TestCase):
                 self.assertEqual(code, 6)
                 self.assertEqual(language.call_args.kwargs['request'], 'open calculator')
                 self.assertTrue(callable(language.call_args.kwargs['ask']))
-            self.assertEqual(language.call_args.kwargs['model'], 'comparator')
+            self.assertIsNone(language.call_args.kwargs['model'])  # Resolved by the public library.
 
     def test_library_requires_review_callback_for_language(self):
         with self.assertRaises(LocuaError) as caught:

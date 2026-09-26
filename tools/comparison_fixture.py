@@ -33,10 +33,19 @@ def setup(out,case,config=None):
         try:
             app='TextEdit' if case=='textedit' else 'Calculator'
             apps=call('apps',query=app)['items']
-            if len(apps)!=1:raise RuntimeError('Fixture app identity ambiguous')
-            aid=apps[0]['app_id'];windows=call('windows',app_id=aid)['windows']
             title=TITLE if case=='textedit' else 'Calculator'
-            matches=[w for w in windows if w.get('title')==title and w.get('identity_proven')]
+            # Multiple running instances of the same native app are possible.
+            # Resolve only the already-declared disposable document/window;
+            # never close an instance or inspect another document to simplify setup.
+            bundle='com.apple.TextEdit' if case=='textedit' else 'com.apple.calculator'
+            matching={}
+            for application in apps:
+                if application.get('bundle_id')!=bundle:continue
+                windows=call('windows',app_id=application['app_id'])['windows']
+                for window in windows:
+                    if window.get('title')==title and window.get('identity_proven'):
+                        target=window['target'];matching[(target['pid'],target['window_id'])]=window
+            matches=list(matching.values())
             if len(matches)!=1:raise RuntimeError('Exact disposable fixture window unavailable/ambiguous')
             wid=matches[0]['window_id'];report['target']=matches[0]
             call('activate',window_id=wid);seen=call('observe',window_id=wid)

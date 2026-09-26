@@ -59,6 +59,11 @@ def _cursor(source, query, offset):
 def _offset(cursor, source, query, count):
     if cursor is None:
         return 0
+    if isinstance(cursor, str) and cursor.startswith('region:'):
+        raise ProgressiveUIError(
+            "cursor is a pagination token, not a region ID. Inspect a region with "
+            "operation='list', region_id=<observed region ID>, and no cursor on the first page. "
+            "To continue a page, copy its coverage.continuation exactly with the same snapshot and query.")
     try:
         if not isinstance(cursor, str) or len(cursor) > 2048:
             raise ValueError()
@@ -73,7 +78,10 @@ def _offset(cursor, source, query, count):
             raise ValueError()
         return offset
     except (ValueError, TypeError, KeyError, UnicodeError) as exc:
-        raise ProgressiveUIError("Continuation is corrupt, stale, or belongs to another query") from exc
+        raise ProgressiveUIError(
+            "Continuation is corrupt, stale, or belongs to another query. Copy coverage.continuation "
+            "exactly from the same snapshot, operation and filters; omit cursor when starting a new query. "
+            "This retained-page error does not establish window unavailability.") from exc
 
 
 def _compact(value, field, control_id):
@@ -259,40 +267,65 @@ def overview(observation, *, actions=(), cursor=None, limit=64, max_bytes=DEFAUL
 
 
 def listing(observation, *, region_id=None, role=None, query=None, actions=(), cursor=None,
-            limit=128, max_bytes=DEFAULT_BYTES):
-    """Compact whole rows; the same regional scope applies to every filter."""
+            limit=128, max_bytes=DEFAULT_BYTES, include_values=False):
+    """Compact whole rows; the same regional scope applies to every filter.
+
+    include_values is an owner-selected representation policy, not a model
+    argument. It searches captured string values without inferring visibility,
+    writability, exactness, or an association between unbound text and controls.
+    """
     view = _View(observation, actions)
     if role is not None and (not isinstance(role, str) or not role):
         raise ProgressiveUIError("role must be an exact observed nonempty role string")
     if query is not None and (not isinstance(query, str) or not query or len(query) > 1024):
         raise ProgressiveUIError("query must be a nonempty semantic-label substring, at most1024 characters")
+    if type(include_values) is not bool:
+        raise ProgressiveUIError("include_values must be an explicit boolean policy")
     controls, primary, texts, outside = view.scope(region_id)
     rows = []
     for c in controls:
         if role is not None and c["role"] != role:
             continue
         labels = {"name": c.get("name"), **{k: c.get("semantics", {}).get(k) for k in _SEMANTIC_FIELDS if k != "name"}}
+        if include_values:
+            labels["value"] = c.get("value")
         if query is not None and not any(isinstance(s, str) and query.casefold() in s.casefold() for s in labels.values()):
             continue
         rows.append(view.row(c, "primary" if c["id"] in primary else "context"))
-    # Shared text remains discoverable in its own explicit item, not invented
-    # controls. A role/label query makes no claim about this unbound text.
+    # Shared text stays explicitly unbound and creates no actionable target.
+    # A role filter cannot match a text line lacking an observed control role.
     items = list(rows)
-    if role is None and query is None:
+    if role is None and (query is None or include_values):
         for index, text in enumerate(texts):
+            if query is not None and query.casefold() not in text["text"].casefold():
+                continue
             if _bytes(text) <= 768:
                 items.append(deepcopy(text))
             else:
                 items.extend({**part, "source_kind": text["kind"]}
                              for part in _fragments(f"shared_text:{index}", text["text"]))
     scope = {"kind": "controls", "region_id": region_id, "role": role, "query": query}
+    search_metadata = {}
+    if include_values:
+        # Bind continuation to this search policy; old label-only cursors cannot
+        # silently change their population on a later page.
+        scope["include_values"] = True
+        search_metadata["query_semantics"] = {
+            "match": "case_insensitive_substring", "fields": ["name"] +
+                ["semantics." + k for k in _SEMANTIC_FIELDS if k != "name"] + ["value"],
+            "value_types": ["string"], "includes_unnamed_readouts": True,
+            "unbound_text_searched": role is None and region_id is not None,
+            "unbound_text_scope": ("Only text retained by the selected region; no full-window text search"
+                if region_id is not None else "Global unbound text is not searched; inspect its region"),
+            "unbound_text_is_not_a_control": True, "visibility_or_exactness_proven": False,
+            "same_region_and_role_scope": True}
     return view.page("list", scope, items, cursor=cursor, limit=limit, max_bytes=max_bytes, outside=outside,
                      extra={"columns": COLUMNS, "action_columns": ACTION_COLUMNS,
                             "relationships": "parent IDs define captured children; control detail lists child IDs",
                             "scope_counts": {"primary": len(primary), "surrounding_context": len(controls)-len(primary),
                                              "matching_controls": len(rows), "unbound_text_items": len(texts)},
-                            "query_searches_values": False, "filtered_text_remains_available_in_unfiltered_list": True,
-                            "context_controls_are_not_primary_action_candidates": True})
+                            "query_searches_values": include_values, "filtered_text_remains_available_in_unfiltered_list": True,
+                            "context_controls_are_not_primary_action_candidates": True, **search_metadata})
 
 
 def unpack_row(page, row):
@@ -347,7 +380,7 @@ def detail(observation, control_id, *, actions=(), cursor=None, max_bytes=DEFAUL
         raise ProgressiveUIError("Control is absent from this captured observation")
     c = view.controls[control_id]
     fields = {k: deepcopy(c.get(k)) for k in ("id", "role", "name", "value", "states", "parent",
-                                               "bounds", "semantics", "value_evidence", "editor", "capabilities")}
+                                               "bounds", "semantics", "value_evidence", "editor", "capabilities", "name_evidence")}
     fields.update(children=view.children[control_id], region_id=view.catalog["memberships"][control_id],
                   actions=view.actions[control_id], observed_actions=deepcopy(c.get("actions", [])))
     items = []

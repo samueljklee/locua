@@ -8,10 +8,19 @@ from locua.cli import main
 from locua.errors import LocuaError
 
 class SelectionTests(unittest.TestCase):
-    def test_default_keeps_local_comparator_and_no_new_options(self):
+    def test_compact_profile_reaches_loop_through_actual_cli_and_library(self):
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), patch(
+                'locua.amplifier_session.run', return_value={'status':'blocked', 'artifacts':'/synthetic'}) as run:
+            main(['do', 'Edit the disposable draft', '--provider', 'local', '--model', 'qwen38',
+                  '--tool-profile', 'continuity-v1', '--instruction-profile', 'continuity-v1'])
+        run.assert_called_once()
+        self.assertEqual(run.call_args.kwargs['tool_profile'], 'continuity-v1')
+        self.assertEqual(run.call_args.kwargs['instruction_profile'], 'continuity-v1')
+
+    def test_default_selects_local_preview_without_hosted_options(self):
         with patch('locua.amplifier_session.run',return_value={'status':'blocked'}) as run:
             lib.do('Use Calculator',ask=lambda _: 'run')
-        self.assertEqual(run.call_args.kwargs['model'],'comparator')
+        self.assertEqual(run.call_args.kwargs['model'],'qwen38')
         for field in ('provider','thinking','task_observations','budget_ledger'):
             self.assertNotIn(field,run.call_args.kwargs)
 

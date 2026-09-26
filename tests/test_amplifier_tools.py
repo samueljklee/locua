@@ -69,6 +69,128 @@ class Desktop:
 
 
 class ToolTests(unittest.TestCase):
+    def test_visual_inspection_follows_valid_read_scope_without_changing_evidence(self):
+        seen=[]
+        self.desktop.attention=lambda observation,**kw: (seen.append((deepcopy(observation),deepcopy(kw)))
+            or {'status':'shown','application_input':False})
+        observed=self.call('observe',window_id=self.window)
+        sid=observed['snapshot_id']
+        self.assertIsNone(seen[-1][1].get('control_ids'))
+        listed=self.call('inspect',snapshot_id=sid,operation='list',query='Entry')
+        self.assertEqual(listed['status'],'ok',listed)
+        ids=[row[0] for row in listed['items'] if isinstance(row,list)]
+        self.assertEqual(seen[-1][1]['control_ids'],ids)
+        self.assertTrue(seen[-1][1]['retained'])
+        count=len(seen)
+        failed=self.call('inspect',snapshot_id=sid,operation='control',control_id='not-an-observed-control')
+        self.assertEqual(failed['status'],'refused');self.assertEqual(len(seen),count)
+        self.assertFalse(self.desktop.executions)
+
+    def test_explicit_preserved_button_state_must_match_at_review_and_before_input(self):
+        original_observe=self.desktop.observe
+        selected=True
+        def observe(target):
+            result=original_observe(target)
+            next(c for c in result['observation']['controls'] if c['name']=='Hide panel')['states']['selected']=selected
+            return result
+        self.desktop.observe=observe
+        self.sid=self.call('observe',window_id=self.window)['snapshot_id']
+        choice=self.item('Hide panel')['control']['id']
+        entry=self.item('Entry')
+        goal={'id':'draft','kind':'text','target':'Entry','control_id':entry['control']['id'],
+              'value':'exact','evidence_plane':'editor_buffer'}
+        args=dict(snapshot_id=self.sid,summary='Edit Entry while preserving the selected choice',
+                  goals=[goal],effects=[{'kind':'goal','goal_id':'draft'}],
+                  preserves=[{'control_id':choice,'property':'selected','value':False}],
+                  covers_entire_request=True)
+        mismatch=self.call('review',**args)
+        self.assertEqual(mismatch['status'],'refused')
+        self.assertIn('did not match',mismatch['reason'])
+        self.assertEqual(self.reviews,[])
+        args['preserves'][0]['value']=True
+        reviewed=self.call('review',**args)
+        self.assertEqual(reviewed['status'],'approved')
+        selected=False
+        result=self.call('act',scope_id=reviewed['scope_id'],snapshot_id=self.sid,
+                         action_id=entry['actions'][0]['id'],value='exact')
+        self.assertEqual(result['status'],'refused')
+        self.assertEqual(self.desktop.executions,[])
+
+    def test_native_xml_missing_review_fields_returns_feedback_without_review_or_input(self):
+        from locua.amplifier_contracts import SPECS
+        from locua.engine.prototype.qwen38_runtime import parse_tool_output
+        specs=[{'type':'function','function':{'name':name,'parameters':schema}}
+               for name,(_description,schema) in SPECS.items()]
+        raw=('<tool_call>\n<function=locua_review>\n'
+             '<parameter=summary>\nPress a requested choice\n</parameter>\n'
+             '<parameter=goals>\n[]\n</parameter>\n'
+             '<parameter=effects>\n[]\n</parameter>\n'
+             '</function>\n</tool_call>')
+        args=parse_tool_output(raw,specs)[0]['arguments']
+        original=deepcopy(args);before=deepcopy(self.desktop.calls)
+        result=self.tools.call('locua_review',args)
+        self.assertEqual(result['status'],'refused')
+        self.assertEqual(result['code'],'argument_contract_invalid')
+        paths={error['path'] for error in result['errors']}
+        self.assertIn('$.snapshot_id',paths)
+        self.assertIn('$.effects',paths)
+        self.assertFalse(result['action_started'])
+        self.assertFalse(result['arguments_rewritten'])
+        self.assertEqual(args,original)
+        self.assertEqual(self.reviews,[])
+        self.assertEqual(self.desktop.calls,before)
+        self.assertEqual(self.desktop.executions,[])
+        # Same toolset remains usable; a malformed proposal does not poison it.
+        self.assertEqual(self.call('status')['status'],'ok')
+
+    def test_unknown_choice_requires_explicit_single_press_and_independent_state_proof(self):
+        original_observe=self.desktop.observe
+        selected=None
+        def observe(target):
+            result=original_observe(target)
+            choice=next(c for c in result['observation']['controls'] if c['name']=='Hide panel')
+            if selected is not None:choice['states']['selected']=selected
+            return result
+        self.desktop.observe=observe
+        item=self.item('Hide panel');cid=item['control']['id']
+        goal={'id':'choice','kind':'state','target':'Hide panel','control_id':cid,
+              'property':'selected','value':True,'evidence_plane':'display'}
+        reviewed=self.call('review',snapshot_id=self.sid,summary='Select the requested choice',
+            goals=[goal],effects=[{'kind':'goal','goal_id':'choice'}],covers_entire_request=True)
+        self.assertEqual(reviewed['status'],'approved')
+        self.assertIn('state at capture: unknown',self.reviews[-1])
+        blocked=self.call('act',scope_id=reviewed['scope_id'],snapshot_id=self.sid,
+                          action_id=item['actions'][0]['id'])
+        self.assertEqual(blocked['status'],'refused')
+        self.assertIn('Fresh state is unknown',blocked['reason'])
+        self.assertEqual(self.desktop.executions,[])
+        self.sid=self.call('observe',window_id=self.window)['snapshot_id']
+        item=self.item('Hide panel');cid=item['control']['id'];goal['control_id']=cid
+        reviewed=self.call('review',snapshot_id=self.sid,summary='Press the requested choice once and verify selection',
+            goals=[goal],effects=[{'kind':'press','control_id':cid,'purpose':'Select the requested choice'}],
+            covers_entire_request=True)
+        self.assertEqual(reviewed['status'],'approved')
+        original_execute=self.desktop.execute
+        def execute(action,observed):
+            nonlocal selected
+            selected=True
+            return original_execute(action,observed)
+        self.desktop.execute=execute
+        result=self.call('act',scope_id=reviewed['scope_id'],snapshot_id=self.sid,
+                         action_id=item['actions'][0]['id'])
+        self.assertEqual(result['status'],'dispatched')
+        self.assertFalse(result['task_complete'])
+        self.assertEqual(len(self.desktop.executions),1)
+        latest=result['snapshot_id'];item=self.item('Hide panel',latest)
+        repeat=self.call('act',scope_id=reviewed['scope_id'],snapshot_id=latest,action_id=item['actions'][0]['id'])
+        self.assertEqual(repeat['status'],'refused')
+        self.assertEqual(len(self.desktop.executions),1)
+        proof=self.call('verify',scope_id=reviewed['scope_id'])
+        self.assertTrue(proof['scopes'][reviewed['scope_id']]['all_reviewed_goals_matched'],proof)
+        selected=None
+        lost=self.call('verify',scope_id=reviewed['scope_id'])
+        self.assertFalse(lost['scopes'][reviewed['scope_id']]['all_reviewed_goals_matched'],lost)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.desktop=Desktop();self.reviews=[];self.answer='run'
@@ -543,6 +665,26 @@ class ToolTests(unittest.TestCase):
         self.assertEqual([r['scope_id'] for r in rows],scopes)
         self.assertEqual([r['goals'][0]['value'] for r in rows],[literal+str(n) for n in range(12)])
         self.assertEqual(len(self.desktop.calls),before)
+    def test_post_action_overview_repaginates_around_receipt_without_losing_controls(self):
+        o=self.large_observation(80,groups=True);sid=self.tools._retain(o)
+        overview=self.tools._overview(o)
+        ack={'effect':'confirmed','detail':'x'*2200}
+        result=self.tools._record('locua_act',{},
+            {'status':'dispatched','action_started':True,'snapshot_id':sid,
+             'target':o['target'],'driver_ack':ack,'task_complete':False,'overview':overview})
+        self.assertEqual(result['status'],'dispatched',result)
+        self.assertTrue(result['action_started']);self.assertEqual(result['driver_ack'],ack)
+        self.assertFalse(result['task_complete']);self.assert_byte_bound(result)
+        page=result['overview'];self.assertLess(len(page['items']),len(overview['items']))
+        items=list(page['items']);cursor=page['coverage']['continuation'];before=len(self.desktop.calls)
+        while cursor:
+            page=self.call('inspect',snapshot_id=sid,operation='overview',cursor=cursor)
+            self.assertEqual(page['status'],'ok');self.assert_byte_bound(page)
+            items+=page['items'];cursor=page['coverage']['continuation']
+        ids=[r['region_id'] for r in items if r['kind']=='region']
+        self.assertEqual(len(ids),81);self.assertEqual(len(set(ids)),81)
+        self.assertEqual(len(self.desktop.calls),before);self.assertFalse(self.desktop.executions)
+
     def test_unpageable_post_operation_overflow_preserves_ack_and_never_replays(self):
         scope=self.review_text();original=self.desktop.execute
         def large_ack(*args):

@@ -76,6 +76,8 @@ class EditorEvidenceTests(unittest.TestCase):
             report=a.retained_identity_check(self.before,self.before['controls'][1]['id'],self.goal,after)
             self.assertFalse(report['matched_at_capture']);self.assertFalse(report['exact_raw_matches_expected'])
 
+    @unittest.skipUnless((ROOT / 'artifacts/model-comparison-v7-freeze-006').is_dir(),
+                         'Private retained replay evidence is not distributed')
     def test_freeze_is_exclusive_and_request_tampering_refuses(self):
         frozen=self.root/'freeze';a.freeze(frozen);public,oracle=a.load(frozen)
         self.assertIn(oracle['expected_buffer'],public['request'])
@@ -84,6 +86,8 @@ class EditorEvidenceTests(unittest.TestCase):
         (frozen/'request.json').write_text('{}')
         with self.assertRaisesRegex(ValueError,'changed'):a.load(frozen)
 
+    @unittest.skipUnless((ROOT / 'artifacts/model-comparison-v7-freeze-006').is_dir(),
+                         'Private retained replay evidence is not distributed')
     def test_disk_attestation_does_not_modify_files_and_requires_fixture_names(self):
         frozen=self.root/'freeze';a.freeze(frozen);_,oracle=a.load(frozen);files={}
         for key,row in oracle['initial_files'].items():
@@ -93,6 +97,8 @@ class EditorEvidenceTests(unittest.TestCase):
         for key,path in files.items():self.assertEqual(a.sha(path.read_bytes()),result['files'][key]['sha256'])
         with self.assertRaises(ValueError):a.disk_attestation(frozen,files['sentinel'],files['target'])
 
+    @unittest.skipUnless((ROOT / 'artifacts/model-comparison-v7-freeze-006').is_dir(),
+                         'Private retained replay evidence is not distributed')
     def test_exposed_disk_attestation_records_current_state_without_historical_rewrite(self):
         frozen=self.root/'freeze';a.freeze(frozen);task=a.exposed_task(frozen)
         p=self.root/task['document'];p.write_bytes(task['expected'].encode())

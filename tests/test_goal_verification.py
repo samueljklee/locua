@@ -3,7 +3,7 @@ from copy import deepcopy
 import time
 import unittest
 
-from locua.goal_verification import BindingError, bind, matches_binding, verify
+from locua.goal_verification import BindingError, bind, bind_for_review, matches_binding, verify
 from locua.engine.prototype.perception import normalize_observation
 from locua.engine.prototype.native_driver_contract import CONTRACT_ID, SOURCE_FINGERPRINT
 
@@ -49,6 +49,23 @@ def editor(value="initial", **changes):
 
 
 class VerificationTests(unittest.TestCase):
+    def test_explicit_future_selection_needs_fresh_boolean_not_press_or_absence(self):
+        goal=outcome('state', target='Compact', property='selected')
+        row=control('AXButton','Compact',None,states={'enabled':True})
+        before=observation(row)
+        binding=bind_for_review(goal,before['controls'][1],before)
+        self.assertFalse(binding['review_descriptor']['state_observed_at_binding'])
+        self.assertIsNone(binding['review_descriptor']['state_at_binding'])
+        self.assertFalse(verify(binding,goal,before)['matched'])
+        with self.assertRaises(BindingError):bind(goal,before['controls'][1],before)
+        for value,expected in ((None,False),(False,False),(True,True),('true',False),(1,False)):
+            after=deepcopy(row);after['states']['selected']=value
+            proof=verify(binding,goal,observation(after,snapshot='after'))
+            self.assertEqual(proof['matched'],expected,(value,proof))
+        changed=observation(row,snapshot='different',target={'pid':41,'window_id':999})
+        self.assertFalse(verify(binding,goal,changed)['matched'])
+        self.assertFalse(verify(binding,{**goal,'property':'checked'},before)['matched'])
+
     def binding(self, goal, row):
         obs = observation(row)
         return bind(goal, obs["controls"][1], obs), obs
