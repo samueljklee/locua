@@ -43,10 +43,14 @@ manager describe earlier experiments and do not override that request.
   retries. Stop repeated equivalent failure and repair the demonstrated cause.
 - State, logs and config stay private in per-user directories. Never commit
   credentials, model weights, personal UI traces or generated artifacts.
+  Before publishing, run `tools/privacy_check.py --staged`; use `--history`
+  for a separate history audit. Review findings without printing matched values.
+  Commit with a public handle and GitHub noreply email, not personal attribution.
 
 ## Checks
 
 ```sh
+.venv/bin/python tools/privacy_check.py --staged
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python -m build --wheel --no-isolation
 .venv/bin/python tools/package_smoke.py dist/locua-0.2.0-py3-none-any.whl

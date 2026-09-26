@@ -10,3 +10,24 @@ artifacts/
 results/
 .cache/
 .DS_Store
+
+# Private runtime material and local credentials must never enter source control.
+.env
+.env.*
+keys.env
+*.pem
+*.key
+*.p12
+*.pfx
+/config.json
+/config.local.*
+/credentials.json
+/secrets.json
+/logs/
+/captures/
+/screenshots/
+/recordings/
+/models/
+/model-cache/
+*.safetensors
+*.gguf
