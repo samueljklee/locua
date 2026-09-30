@@ -7,6 +7,7 @@ name = "locua"
 version = "0.2.0"
 description = "Local computer-use experiments with explicit scope and verified progress."
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
 dependencies = []
 
@@ -28,6 +29,9 @@ Repository = "https://github.com/samueljklee/locua"
 
 [project.scripts]
 locua = "locua.cli:main"
+
+[tool.setuptools]
+license-files = ["LICENSE", "NOTICE"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

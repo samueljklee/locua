@@ -1,0 +1,10 @@
+Locua
+Copyright 2026 samueljklee and Locua contributors
+
+Locua is licensed under the Apache License, Version 2.0.
+
+This distribution includes third-party Qwen RLCD source. Its original license
+and attribution are retained in src/locua/engine/vendor/qwen/LICENSE.txt and
+src/locua/engine/vendor/qwen/NOTICE.txt (locua/engine/vendor/qwen/ in installed
+packages). Separately provisioned dependencies, model weights and drivers
+remain subject to their respective licenses.

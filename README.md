@@ -61,8 +61,7 @@ python -m pip install '.[amplifier]'
 locua --version
 ```
 
-Cloning requires repository access while it is private. This installs code
-dependencies and the `locua` executable; it does not download model weights.
+This installs code dependencies and the `locua` executable; it does not download model weights.
 For the separately provisioned MLX runtime, dependency versions are recorded in
 [requirements-rlcd.lock.txt](src/locua/engine/probes/requirements-rlcd.lock.txt).
 The default 27B model's revision and memory guideline are recorded in
@@ -180,8 +179,10 @@ Exact editor-buffer verification does not prove saved-file contents. The full
 8/10 per-workflow acceptance target and typical task latency under two minutes
 have not been established. See [the gap list](src/locua/docs/gaps.md).
 
-A project-level license has not yet been selected. Bundled third-party code keeps
-its own [license](src/locua/engine/vendor/qwen/LICENSE.txt) and
-[notice](src/locua/engine/vendor/qwen/NOTICE.txt); those notices do not select a
-license for the rest of Locua. Model weights and the driver are separately
-provisioned assets with their own licensing terms.
+## License
+
+Locua is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+Bundled third-party code retains its original
+[license](src/locua/engine/vendor/qwen/LICENSE.txt) and
+[notice](src/locua/engine/vendor/qwen/NOTICE.txt). Model weights, dependencies and
+the driver retain their own licensing terms.
